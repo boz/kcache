@@ -7,10 +7,7 @@ import (
 
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
-	"github.com/boz/kcache/client"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type CacheReader interface {
@@ -21,7 +18,7 @@ type CacheReader interface {
 
 type cache interface {
 	CacheReader
-	sync(runtime.Object) []Event
+	sync([]metav1.Object) []Event
 	update(Event) []Event
 }
 
@@ -36,7 +33,7 @@ type cacheEntry struct {
 }
 
 type syncRequest struct {
-	list     runtime.Object
+	list     []metav1.Object
 	resultch chan<- []Event
 }
 
@@ -51,8 +48,7 @@ type updateRequest struct {
 }
 
 type _cache struct {
-	client client.WatchClient
-
+	filter   Filter
 	syncch   chan syncRequest
 	updatech chan updateRequest
 
@@ -66,11 +62,11 @@ type _cache struct {
 	ctx context.Context
 }
 
-func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, client client.WatchClient) cache {
+func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, filter Filter) cache {
 	log = log.WithComponent("cache")
 
 	c := &_cache{
-		client:   client,
+		filter:   filter,
 		syncch:   make(chan syncRequest),
 		updatech: make(chan updateRequest),
 		getch:    make(chan getRequest),
@@ -86,7 +82,7 @@ func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, clie
 	return c
 }
 
-func (c *_cache) sync(list runtime.Object) []Event {
+func (c *_cache) sync(list []metav1.Object) []Event {
 	defer c.log.Un(c.log.Trace("sync"))
 	resultch := make(chan []Event, 1)
 	request := syncRequest{list, resultch}
@@ -183,25 +179,19 @@ func (c *_cache) doList() []metav1.Object {
 	return result
 }
 
-func (c *_cache) doSync(obj runtime.Object) []Event {
+func (c *_cache) doSync(list []metav1.Object) []Event {
 	defer c.log.Un(c.log.Trace("doSync"))
 
 	var result []Event
-
-	list, err := meta.ExtractList(obj)
-	if err != nil {
-		c.log.ErrWarn(err, "meta.ExtractList(%T)", obj)
-		return result
-	}
 
 	if c.items == nil {
 		c.doInitialSync(list)
 		return result
 	}
 
-	result, err = c.processList(list)
+	result, err := c.processList(list)
 	if err != nil {
-		c.log.ErrWarn(err, "meta.ExtractList(%T)", obj)
+		c.log.ErrWarn(err, "cache.processList()")
 	}
 	return result
 }
@@ -224,6 +214,8 @@ func (c *_cache) doUpdate(evt Event) []Event {
 
 	current, found := c.items[key]
 
+	accept := c.filter.Accept(entry.object)
+
 	switch evt.Type() {
 	case EventTypeDelete:
 		if found {
@@ -232,13 +224,16 @@ func (c *_cache) doUpdate(evt Event) []Event {
 		}
 	default:
 		switch {
-		case !found:
+		case accept && !found:
 			events = append(events, NewEvent(EventTypeCreate, obj))
 			c.items[key] = entry
-		case current.version < entry.version:
+		case accept && current.version < entry.version:
 			events = append(events, NewEvent(EventTypeUpdate, obj))
 			c.items[key] = entry
-		case current.version > entry.version:
+		case !accept && current.version < entry.version:
+			events = append(events, NewEvent(EventTypeDelete, obj))
+			delete(c.items, key)
+		case current.version >= entry.version:
 			c.log.Debugf("skipping version %v > %v", current.version, entry.version)
 		}
 	}
@@ -246,7 +241,7 @@ func (c *_cache) doUpdate(evt Event) []Event {
 	return events
 }
 
-func (c *_cache) doInitialSync(list []runtime.Object) {
+func (c *_cache) doInitialSync(list []metav1.Object) {
 	c.items = make(map[cacheKey]cacheEntry, len(list))
 
 	for _, obj := range list {
@@ -261,11 +256,16 @@ func (c *_cache) doInitialSync(list []runtime.Object) {
 			c.log.ErrWarn(err, "createEntry(%T)", obj)
 			continue
 		}
+
+		if !c.filter.Accept(entry.object) {
+			continue
+		}
+
 		c.items[key] = entry
 	}
 }
 
-func (c *_cache) processList(list []runtime.Object) ([]Event, error) {
+func (c *_cache) processList(list []metav1.Object) ([]Event, error) {
 
 	var events []Event
 	set := make(map[cacheKey]cacheEntry)
@@ -283,21 +283,24 @@ func (c *_cache) processList(list []runtime.Object) ([]Event, error) {
 			continue
 		}
 
-		set[key] = entry
-
 		current, found := c.items[key]
 
+		accept := c.filter.Accept(entry.object)
+
 		switch {
-		case !found:
+		case accept && !found:
 			events = append(events, NewEvent(EventTypeCreate, entry.object))
-		case current.version > entry.version:
-			c.log.Debugf("skipping version %v > %v", current.version, entry.version)
-			continue
-		case current.version < entry.version:
+		case accept && current.version < entry.version:
 			events = append(events, NewEvent(EventTypeUpdate, entry.object))
 			c.items[key] = entry
+		case current.version >= entry.version:
+			c.log.Debugf("skipping version %v > %v", current.version, entry.version)
+		default:
+			// don't add to working new working set of objects
+			continue
 		}
 
+		set[key] = entry
 	}
 
 	for k, current := range c.items {
@@ -309,28 +312,17 @@ func (c *_cache) processList(list []runtime.Object) ([]Event, error) {
 	return events, nil
 }
 
-func (c *_cache) createKey(obj runtime.Object) (cacheKey, error) {
-	accessor := meta.NewAccessor()
-	ns, err := accessor.Namespace(obj)
-	if err != nil {
-		return cacheKey{}, err
-	}
-
-	name, err := accessor.Name(obj)
-	if err != nil {
-		return cacheKey{}, err
-	}
+func (c *_cache) createKey(obj metav1.Object) (cacheKey, error) {
+	ns := obj.GetNamespace()
+	name := obj.GetName()
 
 	return cacheKey{ns, name}, nil
 }
 
-func (c *_cache) createEntry(obj runtime.Object) (cacheEntry, error) {
-	if obj, ok := obj.(metav1.Object); ok {
-		version, err := strconv.Atoi(obj.GetResourceVersion())
-		if err != nil {
-			return cacheEntry{}, err
-		}
-		return cacheEntry{version, obj}, nil
+func (c *_cache) createEntry(obj metav1.Object) (cacheEntry, error) {
+	version, err := strconv.Atoi(obj.GetResourceVersion())
+	if err != nil {
+		return cacheEntry{}, err
 	}
-	return cacheEntry{}, errInvalidType
+	return cacheEntry{version, obj}, nil
 }

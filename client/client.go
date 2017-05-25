@@ -3,23 +3,23 @@ package client
 import (
 	"context"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 )
 
-type ListFn func(context.Context, metav1.ListOptions) (runtime.Object, error)
-type WatchFn func(context.Context, metav1.ListOptions) (watch.Interface, error)
+type ListFn func(context.Context, v1.ListOptions) (runtime.Object, error)
+type WatchFn func(context.Context, v1.ListOptions) (watch.Interface, error)
 
 type ListClient interface {
-	List(context.Context, metav1.ListOptions) (runtime.Object, error)
+	List(context.Context, v1.ListOptions) (runtime.Object, error)
 }
 
 type WatchClient interface {
-	Watch(context.Context, metav1.ListOptions) (watch.Interface, error)
+	Watch(context.Context, v1.ListOptions) (watch.Interface, error)
 }
 
 type Client interface {
@@ -44,11 +44,11 @@ func NewClient(list ListFn, watch WatchFn) Client {
 	return &client{list, watch}
 }
 
-func (c *client) List(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+func (c *client) List(ctx context.Context, opts v1.ListOptions) (runtime.Object, error) {
 	return c.list(ctx, opts)
 }
 
-func (c *client) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+func (c *client) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.watch(ctx, opts)
 }
 
@@ -66,12 +66,12 @@ func ForResource(
 
 func makeResourceListFn(
 	c restRequester, res string, ns string, fsel fields.Selector) ListFn {
-	return func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+	return func(ctx context.Context, opts v1.ListOptions) (runtime.Object, error) {
 		return c.Get().
 			Context(ctx).
 			Namespace(ns).
 			Resource(res).
-			VersionedParams(&opts, api.ParameterCodec).
+			VersionedParams(&opts, scheme.ParameterCodec).
 			FieldsSelectorParam(fsel).
 			Do().
 			Get()
@@ -81,13 +81,13 @@ func makeResourceListFn(
 func makeResourceWatchFn(
 	c restRequester, res string, ns string, fsel fields.Selector) WatchFn {
 
-	return func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return func(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 		return c.Get().
 			Context(ctx).
 			Prefix("watch").
 			Namespace(ns).
 			Resource(res).
-			VersionedParams(&opts, api.ParameterCodec).
+			VersionedParams(&opts, scheme.ParameterCodec).
 			FieldsSelectorParam(fsel).
 			Watch()
 	}

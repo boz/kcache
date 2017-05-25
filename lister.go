@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	lifecycle "github.com/boz/go-lifecycle"
@@ -119,7 +119,7 @@ func (l *_lister) list() <-chan listResult {
 func (l *_lister) executeList(ctx context.Context) listResult {
 	defer l.log.Un(l.log.Trace("executeList"))
 
-	list, err := l.client.List(ctx, metav1.ListOptions{})
+	list, err := l.client.List(ctx, v1.ListOptions{})
 	if err != nil {
 		l.log.ErrWarn(err, "client.List()")
 		return listResult{nil, err}

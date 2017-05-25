@@ -1,10 +1,12 @@
 package kcache
 
 import (
-	"context"
-
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
+)
+
+const (
+	eventBufsiz = 100
 )
 
 type Subscription interface {
@@ -32,20 +34,20 @@ type _subscription struct {
 	lc  lifecycle.Lifecycle
 }
 
-func newSubscription(ctx context.Context, log logutil.Log, readych <-chan struct{}, cache CacheReader) subscription {
+func newSubscription(log logutil.Log, stopch <-chan struct{}, readych <-chan struct{}, cache CacheReader) subscription {
 	log = log.WithComponent("subscription")
 
 	lc := lifecycle.New()
 	s := &_subscription{
 		readych: readych,
 		inch:    make(chan Event),
-		outch:   make(chan Event),
+		outch:   make(chan Event, eventBufsiz),
 		cache:   cache,
 		log:     log,
 		lc:      lc,
 	}
 
-	go s.lc.WatchContext(ctx)
+	go s.lc.WatchChannel(stopch)
 
 	go s.run()
 	return s
@@ -68,25 +70,16 @@ func (s *_subscription) run() {
 	defer s.lc.ShutdownInitiated()
 	defer close(s.outch)
 
-	var buf []Event
-
 	for {
-		var outch chan Event
-		var evt Event
-
-		if len(buf) > 0 {
-			outch = s.outch
-			evt = buf[0]
-		}
-
 		select {
 		case <-s.lc.ShutdownRequest():
 			return
-		case outch <- evt:
-			buf = buf[1:]
 		case evt := <-s.inch:
-			s.log.Debugf("event: %v", evt)
-			buf = append(buf, evt)
+			select {
+			case s.outch <- evt:
+			default:
+				s.log.Warnf("event buffer overrun")
+			}
 		}
 	}
 }

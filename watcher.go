@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
 	lifecycle "github.com/boz/go-lifecycle"
@@ -126,7 +126,7 @@ func (w *_watcher) run() {
 }
 
 func (w *_watcher) startWatch(ctx context.Context, version string) (watch.Interface, error) {
-	response, err := w.client.Watch(ctx, metav1.ListOptions{
+	response, err := w.client.Watch(ctx, v1.ListOptions{
 		ResourceVersion: version,
 		Watch:           true,
 	})

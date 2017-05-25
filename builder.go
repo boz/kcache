@@ -14,6 +14,8 @@ type Builder interface {
 	Context(context.Context) Builder
 	Log(logutil.Log) Builder
 
+	Filter(Filter) Builder
+
 	Client(client.Client) Builder
 	Lister() ListerBuilder
 	Watcher() WatcherBuilder
@@ -32,9 +34,10 @@ type WatcherBuilder interface {
 
 func NewBuilder() Builder {
 	return &builder{
-		ctx: context.Background(),
-		lb:  newListerBuilder(),
-		wb:  newWatcherBuilder(),
+		filter: NullFilter(),
+		ctx:    context.Background(),
+		lb:     newListerBuilder(),
+		wb:     newWatcherBuilder(),
 	}
 }
 
@@ -42,6 +45,7 @@ type builder struct {
 	client client.Client
 	log    logutil.Log
 	ctx    context.Context
+	filter Filter
 
 	lb *listerBuilder
 	wb *watcherBuilder
@@ -54,6 +58,11 @@ func (b *builder) Context(ctx context.Context) Builder {
 
 func (b *builder) Log(log logutil.Log) Builder {
 	b.log = log
+	return b
+}
+
+func (b *builder) Filter(filter Filter) Builder {
+	b.filter = filter
 	return b
 }
 
@@ -76,24 +85,27 @@ func (b *builder) Create() (Controller, error) {
 		return nil, fmt.Errorf("kcache builder: log required")
 	}
 
-	if b.client == nil {
-		return nil, fmt.Errorf("kcache builder: client required")
-	}
-
 	log := b.log.WithComponent("controller")
 	ctx := b.ctx
 
 	lc := lifecycle.New()
 
+	cache := newCache(ctx, log, lc.ShuttingDown(), b.filter)
+	readych := make(chan struct{})
+
+	subscription := newSubscription(log, lc.ShuttingDown(), readych, cache)
+	publisher := NewPublisher(log, subscription)
+
 	c := &controller{
-		readych: make(chan struct{}),
+		readych: readych,
+
+		subscription: subscription,
+		publisher:    publisher,
+
 		lister:  newLister(ctx, log, lc.ShuttingDown(), b.lb.period, b.lb.client),
 		watcher: newWatcher(ctx, log, lc.ShuttingDown(), b.wb.client),
-		cache:   newCache(ctx, log, lc.ShuttingDown(), b.client),
 
-		subscribech:   make(chan chan<- Subscription),
-		unsubscribech: make(chan subscription),
-		subscriptions: make(map[subscription]struct{}),
+		cache: cache,
 
 		log: log,
 		lc:  lc,

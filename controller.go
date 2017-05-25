@@ -41,9 +41,8 @@ type controller struct {
 	lister  lister
 	cache   cache
 
-	subscribech   chan chan<- Subscription
-	unsubscribech chan subscription
-	subscriptions map[subscription]struct{}
+	subscription subscription
+	publisher    Publisher
 
 	log logutil.Log
 	lc  lifecycle.Lifecycle
@@ -67,13 +66,7 @@ func (c *controller) Cache() CacheReader {
 }
 
 func (c *controller) Subscribe() Subscription {
-	resultch := make(chan Subscription, 1)
-	select {
-	case <-c.lc.ShuttingDown():
-		return nil
-	case c.subscribech <- resultch:
-		return <-resultch
-	}
+	return c.publisher.Subscribe()
 }
 
 func (c *controller) run() {
@@ -100,7 +93,13 @@ func (c *controller) run() {
 				return
 			}
 
-			events := c.cache.sync(result.list)
+			list, err := extractList(result.list)
+			if err != nil {
+				c.log.Err(result.err, "extractList()")
+				return
+			}
+
+			events := c.cache.sync(list)
 
 			if !initialized {
 				initialized = true
@@ -116,36 +115,12 @@ func (c *controller) run() {
 			events := c.cache.update(evt)
 
 			c.distributeEvents(events)
-
-		case resultch := <-c.subscribech:
-			c.doSubscribe(resultch)
-		case sub := <-c.unsubscribech:
-			delete(c.subscriptions, sub)
 		}
 	}
 }
 
 func (c *controller) distributeEvents(events []Event) {
 	for _, evt := range events {
-		for sub := range c.subscriptions {
-			sub.send(evt)
-		}
+		c.subscription.send(evt)
 	}
-}
-
-func (c *controller) doSubscribe(ch chan<- Subscription) {
-	defer c.log.Un(c.log.Trace("doSubscribe"))
-
-	sub := newSubscription(c.ctx, c.log, c.readych, c.cache)
-	c.subscriptions[sub] = struct{}{}
-
-	go func() {
-		select {
-		case <-c.lc.ShuttingDown():
-			sub.Close()
-		case <-sub.done():
-			c.unsubscribech <- sub
-		}
-	}()
-	ch <- sub
 }

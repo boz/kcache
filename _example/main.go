@@ -44,7 +44,11 @@ func main() {
 
 	subscription := controller.Subscribe()
 
-	<-subscription.Ready()
+	select {
+	case <-subscription.Ready():
+	case <-controller.Done():
+		return
+	}
 
 	list, err := subscription.Cache().List()
 	if err != nil {
