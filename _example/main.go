@@ -40,13 +40,13 @@ func main() {
 
 	go watchSignals(log, controller)
 
-	defer controller.Stop()
+	defer controller.Close()
 
 	subscription := controller.Subscribe()
 
 	select {
 	case <-subscription.Ready():
-	case <-controller.Done():
+	case <-subscription.Done():
 		return
 	}
 
@@ -145,6 +145,6 @@ func watchSignals(log logutil.Log, controller kcache.Controller) {
 	select {
 	case <-controller.Done():
 	case <-sigch:
-		controller.Stop()
+		controller.Close()
 	}
 }

@@ -5,13 +5,6 @@ import (
 	logutil "github.com/boz/go-logutil"
 )
 
-type PublisherSubscription interface {
-	Publisher
-	Cache() CacheReader
-	Ready() <-chan struct{}
-	Close()
-}
-
 type publisherSubscription struct {
 	parent Subscription
 
@@ -23,7 +16,7 @@ type publisherSubscription struct {
 	log logutil.Log
 }
 
-func NewPublisher(log logutil.Log, parent Subscription) PublisherSubscription {
+func NewPublisher(log logutil.Log, parent Subscription) Controller {
 	s := &publisherSubscription{
 		parent:        parent,
 		subscribech:   make(chan chan<- Subscription),
@@ -38,16 +31,20 @@ func NewPublisher(log logutil.Log, parent Subscription) PublisherSubscription {
 	return s
 }
 
-func (s *publisherSubscription) Close() {
-	s.parent.Close()
-}
-
 func (s *publisherSubscription) Ready() <-chan struct{} {
 	return s.parent.Ready()
 }
 
 func (s *publisherSubscription) Cache() CacheReader {
 	return s.parent.Cache()
+}
+
+func (s *publisherSubscription) Close() {
+	s.parent.Close()
+}
+
+func (s *publisherSubscription) Done() <-chan struct{} {
+	return s.lc.Done()
 }
 
 func (s *publisherSubscription) Subscribe() Subscription {
@@ -96,7 +93,7 @@ func (s *publisherSubscription) createSubscription() Subscription {
 	go func() {
 
 		select {
-		case <-sub.done():
+		case <-sub.Done():
 		case <-s.lc.ShuttingDown():
 			sub.Close()
 			return

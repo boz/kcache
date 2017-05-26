@@ -37,6 +37,22 @@ func NewFilterSubscription(log logutil.Log, parent Subscription, filter Filter) 
 	return s
 }
 
+func (s *filterSubscription) Cache() CacheReader {
+	return s.cache
+}
+func (s *filterSubscription) Ready() <-chan struct{} {
+	return s.readych
+}
+func (s *filterSubscription) Events() <-chan Event {
+	return s.outch
+}
+func (s *filterSubscription) Close() {
+	s.parent.Close()
+}
+func (s *filterSubscription) Done() <-chan struct{} {
+	return s.parent.Done()
+}
+
 func (s *filterSubscription) run() {
 	defer s.log.Un(s.log.Trace("run"))
 	defer close(s.outch)
@@ -49,14 +65,15 @@ func (s *filterSubscription) run() {
 		case <-preadych:
 
 			list, err := s.parent.Cache().List()
+
 			if err != nil {
 				s.log.Err(err, "parent.Cache().List()")
 				s.parent.Close()
-				return
+			} else {
+				s.cache.sync(list)
+				close(s.readych)
 			}
 
-			s.cache.sync(list)
-			close(s.readych)
 			preadych = nil
 
 		case evt, ok := <-s.parent.Events():
@@ -73,17 +90,4 @@ func (s *filterSubscription) run() {
 			}
 		}
 	}
-}
-
-func (s *filterSubscription) Cache() CacheReader {
-	return s.cache
-}
-func (s *filterSubscription) Ready() <-chan struct{} {
-	return s.readych
-}
-func (s *filterSubscription) Events() <-chan Event {
-	return s.outch
-}
-func (s *filterSubscription) Close() {
-	s.parent.Close()
 }

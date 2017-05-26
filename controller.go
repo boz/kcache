@@ -21,7 +21,7 @@ type Controller interface {
 	CacheController
 	Publisher
 	Done() <-chan struct{}
-	Stop()
+	Close()
 }
 
 func NewController(ctx context.Context, log logutil.Log, client client.Client) (Controller, error) {
@@ -53,7 +53,7 @@ func (c *controller) Ready() <-chan struct{} {
 	return c.readych
 }
 
-func (c *controller) Stop() {
+func (c *controller) Close() {
 	c.lc.Shutdown()
 }
 

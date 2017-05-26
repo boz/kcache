@@ -10,16 +10,15 @@ const (
 )
 
 type Subscription interface {
-	Cache() CacheReader
-	Ready() <-chan struct{}
+	CacheController
 	Events() <-chan Event
 	Close()
+	Done() <-chan struct{}
 }
 
 type subscription interface {
 	Subscription
 	send(Event)
-	done() <-chan struct{}
 }
 
 type _subscription struct {
@@ -53,7 +52,23 @@ func newSubscription(log logutil.Log, stopch <-chan struct{}, readych <-chan str
 	return s
 }
 
-func (s *_subscription) done() <-chan struct{} {
+func (s *_subscription) Ready() <-chan struct{} {
+	return s.readych
+}
+
+func (s *_subscription) Events() <-chan Event {
+	return s.outch
+}
+
+func (s *_subscription) Cache() CacheReader {
+	return s.cache
+}
+
+func (s *_subscription) Close() {
+	s.lc.Shutdown()
+}
+
+func (s *_subscription) Done() <-chan struct{} {
 	return s.lc.Done()
 }
 
@@ -82,20 +97,4 @@ func (s *_subscription) run() {
 			}
 		}
 	}
-}
-
-func (s *_subscription) Close() {
-	s.lc.Shutdown()
-}
-
-func (s *_subscription) Ready() <-chan struct{} {
-	return s.readych
-}
-
-func (s *_subscription) Events() <-chan Event {
-	return s.outch
-}
-
-func (s *_subscription) Cache() CacheReader {
-	return s.cache
 }
