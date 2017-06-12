@@ -6,8 +6,15 @@ import (
 	logutil "github.com/boz/go-logutil"
 )
 
+type FilterSubscription interface {
+	Subscription
+	Refilter(Filter)
+}
+
 type filterSubscription struct {
 	parent Subscription
+
+	refilterch chan Filter
 
 	outch   chan Event
 	readych chan struct{}
@@ -17,19 +24,20 @@ type filterSubscription struct {
 	log logutil.Log
 }
 
-func NewFilterSubscription(log logutil.Log, parent Subscription, filter Filter) Subscription {
+func NewFilterSubscription(log logutil.Log, parent Subscription, filter Filter) FilterSubscription {
 
 	ctx := context.Background()
 
 	stopch := make(chan struct{})
 
 	s := &filterSubscription{
-		parent:  parent,
-		outch:   make(chan Event, eventBufsiz),
-		readych: make(chan struct{}),
-		stopch:  stopch,
-		cache:   newCache(ctx, log, stopch, filter),
-		log:     log,
+		parent:     parent,
+		refilterch: make(chan Filter),
+		outch:      make(chan Event, eventBufsiz),
+		readych:    make(chan struct{}),
+		stopch:     stopch,
+		cache:      newCache(ctx, log, stopch, filter),
+		log:        log,
 	}
 
 	go s.run()
@@ -51,6 +59,13 @@ func (s *filterSubscription) Close() {
 }
 func (s *filterSubscription) Done() <-chan struct{} {
 	return s.parent.Done()
+}
+
+func (s *filterSubscription) Refilter(filter Filter) {
+	select {
+	case s.refilterch <- filter:
+	case <-s.Done():
+	}
 }
 
 func (s *filterSubscription) run() {
@@ -76,18 +91,33 @@ func (s *filterSubscription) run() {
 
 			preadych = nil
 
+		case filter := <-s.refilterch:
+
+			list, err := s.parent.Cache().List()
+			if err != nil {
+				s.log.Err(err, "parent.Cache().List()")
+				s.parent.Close()
+				continue
+			}
+
+			s.distributeEvents(s.cache.refilter(list, filter))
+
 		case evt, ok := <-s.parent.Events():
 			if !ok {
 				return
 			}
 
-			for _, evt := range s.cache.update(evt) {
-				select {
-				case s.outch <- evt:
-				default:
-					s.log.Warnf("event buffer overrun")
-				}
-			}
+			s.distributeEvents(s.cache.update(evt))
+		}
+	}
+}
+
+func (s *filterSubscription) distributeEvents(events []Event) {
+	for _, evt := range events {
+		select {
+		case s.outch <- evt:
+		default:
+			s.log.Warnf("event buffer overrun")
 		}
 	}
 }

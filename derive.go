@@ -2,7 +2,7 @@ package kcache
 
 import logutil "github.com/boz/go-logutil"
 
-func SubscribeWithFilter(log logutil.Log, publisher Publisher, filter Filter) Subscription {
+func SubscribeWithFilter(log logutil.Log, publisher Publisher, filter Filter) FilterSubscription {
 	parent := publisher.Subscribe()
 	return NewFilterSubscription(log, parent, filter)
 }

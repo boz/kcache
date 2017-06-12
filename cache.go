@@ -20,6 +20,7 @@ type cache interface {
 	CacheReader
 	sync([]metav1.Object) []Event
 	update(Event) []Event
+	refilter([]metav1.Object, Filter) []Event
 }
 
 type cacheKey struct {
@@ -47,10 +48,17 @@ type updateRequest struct {
 	resultch chan<- []Event
 }
 
-type _cache struct {
+type refilterRequest struct {
+	list     []metav1.Object
 	filter   Filter
-	syncch   chan syncRequest
-	updatech chan updateRequest
+	resultch chan<- []Event
+}
+
+type _cache struct {
+	filter     Filter
+	syncch     chan syncRequest
+	updatech   chan updateRequest
+	refilterch chan refilterRequest
 
 	getch  chan getRequest
 	listch chan chan []metav1.Object
@@ -66,14 +74,15 @@ func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, filt
 	log = log.WithComponent("cache")
 
 	c := &_cache{
-		filter:   filter,
-		syncch:   make(chan syncRequest),
-		updatech: make(chan updateRequest),
-		getch:    make(chan getRequest),
-		listch:   make(chan chan []metav1.Object),
-		log:      log,
-		lc:       lifecycle.New(),
-		ctx:      ctx,
+		filter:     filter,
+		syncch:     make(chan syncRequest),
+		updatech:   make(chan updateRequest),
+		getch:      make(chan getRequest),
+		refilterch: make(chan refilterRequest),
+		listch:     make(chan chan []metav1.Object),
+		log:        log,
+		lc:         lifecycle.New(),
+		ctx:        ctx,
 	}
 	go c.lc.WatchContext(ctx)
 	go c.lc.WatchChannel(stopch)
@@ -106,6 +115,20 @@ func (c *_cache) update(evt Event) []Event {
 	case <-c.lc.ShuttingDown():
 		return nil
 	case c.updatech <- request:
+	}
+
+	return <-resultch
+}
+
+func (c *_cache) refilter(list []metav1.Object, filter Filter) []Event {
+	defer c.log.Un(c.log.Trace("refilter"))
+	resultch := make(chan []Event, 1)
+	request := refilterRequest{list, filter, resultch}
+
+	select {
+	case <-c.lc.ShuttingDown():
+		return nil
+	case c.refilterch <- request:
 	}
 
 	return <-resultch
@@ -152,6 +175,8 @@ func (c *_cache) run() {
 			request.resultch <- c.doSync(request.list)
 		case request := <-c.updatech:
 			request.resultch <- c.doUpdate(request.evt)
+		case request := <-c.refilterch:
+			request.resultch <- c.doRefilter(request.list, request.filter)
 		case request := <-c.listch:
 			request <- c.doList()
 		case request := <-c.getch:
@@ -194,6 +219,11 @@ func (c *_cache) doSync(list []metav1.Object) []Event {
 		c.log.ErrWarn(err, "cache.processList()")
 	}
 	return result
+}
+
+func (c *_cache) doRefilter(list []metav1.Object, filter Filter) []Event {
+	c.filter = filter
+	return c.doSync(list)
 }
 
 func (c *_cache) doUpdate(evt Event) []Event {
