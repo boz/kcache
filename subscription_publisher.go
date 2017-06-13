@@ -5,6 +5,11 @@ import (
 	logutil "github.com/boz/go-logutil"
 )
 
+type FilterController interface {
+	Controller
+	Refilter(Filter)
+}
+
 type publisherSubscription struct {
 	parent Subscription
 
@@ -107,4 +112,37 @@ func (s *publisherSubscription) createSubscription() Subscription {
 	}()
 
 	return sub
+}
+
+func NewFilterPublisher(log logutil.Log, subscription FilterSubscription) FilterController {
+	return &filterController{subscription, NewPublisher(log, subscription)}
+}
+
+type filterController struct {
+	subscription FilterSubscription
+	parent       Controller
+}
+
+func (c *filterController) Cache() CacheReader {
+	return c.parent.Cache()
+}
+
+func (c *filterController) Ready() <-chan struct{} {
+	return c.parent.Ready()
+}
+
+func (c *filterController) Subscribe() Subscription {
+	return c.parent.Subscribe()
+}
+
+func (c *filterController) Done() <-chan struct{} {
+	return c.parent.Done()
+}
+
+func (c *filterController) Close() {
+	c.parent.Close()
+}
+
+func (c *filterController) Refilter(filter Filter) {
+	c.subscription.Refilter(filter)
 }

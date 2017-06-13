@@ -12,7 +12,7 @@ func Clone(log logutil.Log, publisher Publisher) Controller {
 	return NewPublisher(log, parent)
 }
 
-func CloneWithFilter(log logutil.Log, publisher Publisher, filter Filter) Controller {
+func CloneWithFilter(log logutil.Log, publisher Publisher, filter Filter) FilterController {
 	parent := SubscribeWithFilter(log, publisher, filter)
-	return NewPublisher(log, parent)
+	return NewFilterPublisher(log, parent)
 }
