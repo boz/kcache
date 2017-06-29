@@ -2,14 +2,15 @@ package kcache
 
 import (
 	"context"
-
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
+	"time"
 
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/client"
+)
+
+const (
+	watchRetryDelay = time.Second
 )
 
 type watcher interface {
@@ -23,7 +24,7 @@ type _watcher struct {
 	client client.WatchClient
 
 	resetch chan string
-	outch   chan Event
+	evtch   chan chan (<-chan Event)
 
 	log logutil.Log
 	lc  lifecycle.Lifecycle
@@ -37,7 +38,7 @@ func newWatcher(ctx context.Context, log logutil.Log, stopch <-chan struct{}, cl
 	w := &_watcher{
 		client:  client,
 		resetch: make(chan string),
-		outch:   make(chan Event),
+		evtch:   make(chan chan (<-chan Event)),
 		log:     log,
 		lc:      lc,
 		ctx:     ctx,
@@ -57,7 +58,13 @@ func (w *_watcher) reset(vsn string) {
 }
 
 func (w *_watcher) events() <-chan Event {
-	return w.outch
+	req := make(chan (<-chan Event), 1)
+	select {
+	case w.evtch <- req:
+		return <-req
+	case <-w.lc.ShuttingDown():
+		return nil
+	}
 }
 
 func (w *_watcher) run() {
@@ -67,68 +74,64 @@ func (w *_watcher) run() {
 	ctx, cancel := context.WithCancel(w.ctx)
 	defer cancel()
 
-	var watchstream watch.Interface
-	var eventsch <-chan watch.Event
+	var session watchSession = nullWatchSession{}
+	var outch chan Event
 
-	var buf []Event
+	var curVersion string
+
+	var retry *time.Timer
+	defer func() {
+		if retry != nil {
+			retry.Stop()
+		}
+	}()
 
 	for {
-		var evt Event
-		var outch chan Event
-
-		if len(buf) > 0 {
-			evt = buf[0]
-			outch = w.outch
-		}
 
 		select {
 		case <-w.lc.ShutdownRequest():
 			return
 
 		case vsn := <-w.resetch:
+			w.log.Debugf("ressetting to version %v", vsn)
 
-			if watchstream != nil {
-				watchstream.Stop()
+			if retry != nil {
+				retry.Stop()
+				retry = nil
 			}
 
-			ws, err := w.startWatch(ctx, vsn)
-			if err != nil {
-				w.log.Err(err, "startWatch")
-				return
+			session.stop()
+			session = newWatchSession(ctx, w.log, w.client, vsn)
+			outch = make(chan Event, EventBufsiz)
+			curVersion = vsn
+
+		case <-session.done():
+			w.log.Debugf("session done.  retrying version %v in %v", curVersion, watchRetryDelay)
+
+			outch = nil
+			retry = w.scheduleRetry(w.resetch, curVersion)
+
+		case evt := <-session.events():
+
+			select {
+			case outch <- evt:
+			default:
+				w.log.Errorf("output buffer full")
 			}
 
-			buf = make([]Event, 0)
+			curVersion = evt.Resource().GetResourceVersion()
 
-			watchstream = ws
-			eventsch = watchstream.ResultChan()
-
-		case evt := <-eventsch:
-
-			obj, err := meta.Accessor(evt.Object)
-			if err != nil {
-				w.log.ErrWarn(err, "meta.Accessor(%T)", evt.Object)
-				continue
-			}
-
-			switch evt.Type {
-			case watch.Added:
-				buf = append(buf, NewEvent(EventTypeCreate, obj))
-			case watch.Modified:
-				buf = append(buf, NewEvent(EventTypeUpdate, obj))
-			case watch.Deleted:
-				buf = append(buf, NewEvent(EventTypeDelete, obj))
-			}
-
-		case outch <- evt:
-			buf = buf[1:]
+		case reqch := <-w.evtch:
+			reqch <- outch
 		}
 	}
 }
 
-func (w *_watcher) startWatch(ctx context.Context, version string) (watch.Interface, error) {
-	response, err := w.client.Watch(ctx, v1.ListOptions{
-		ResourceVersion: version,
-		Watch:           true,
+func (w *_watcher) scheduleRetry(ch chan string, vsn string) *time.Timer {
+	return time.AfterFunc(watchRetryDelay, func() {
+		select {
+		case ch <- vsn:
+		case <-w.lc.Done():
+		}
 	})
-	return response, err
 }
