@@ -8,15 +8,13 @@ import (
 	"syscall"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache"
-	"github.com/boz/kcache/client"
+	"github.com/boz/kcache/types/pod"
 
 	lr "github.com/boz/go-logutil/logrus"
 	"github.com/sirupsen/logrus"
@@ -29,9 +27,9 @@ func main() {
 	log := lr.New(logger)
 	ctx := context.Background()
 
-	rclient := getRESTClient(log)
+	cs := getClientset(log)
 
-	client := client.ForResource(rclient, "pods", metav1.NamespaceAll, fields.Everything())
+	client := pod.NewClient(cs, metav1.NamespaceAll)
 
 	controller, err := kcache.NewController(ctx, log, client)
 	if err != nil {
@@ -42,7 +40,7 @@ func main() {
 
 	defer controller.Close()
 
-	subscription := controller.Subscribe()
+	subscription := pod.AdaptSubscription(controller)
 
 	select {
 	case <-subscription.Ready():
@@ -56,11 +54,7 @@ func main() {
 	}
 
 	for _, pod := range list {
-		if pod, ok := pod.(*v1.Pod); ok {
-			fmt.Printf("%v/%v: %v\n", pod.GetNamespace(), pod.GetName(), pod.GetResourceVersion())
-		} else {
-			log.Infof("invalid type: %T", pod)
-		}
+		fmt.Printf("%v/%v: %v\n", pod.GetNamespace(), pod.GetName(), pod.GetResourceVersion())
 	}
 
 	for {
@@ -72,12 +66,6 @@ func main() {
 			obj := ev.Resource()
 			fmt.Printf("event: %v: %v/%v[%v]\n", ev.Type(), obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion())
 
-			cobj, err := subscription.Cache().GetObject(obj)
-			if err != nil {
-				log.ErrWarn(err, "GetObject()")
-				continue
-			}
-
 			cnobj, err := subscription.Cache().Get(obj.GetNamespace(), obj.GetName())
 			if err != nil {
 				log.ErrWarn(err, "Get()")
@@ -85,31 +73,30 @@ func main() {
 			}
 
 			if ev.Type() == kcache.EventTypeDelete {
-				if cobj != nil {
-					log.Warnf("GetObject(deleted) != nil")
-				}
 				if cnobj != nil {
 					log.Warnf("Get(deleted) != nil")
 				}
 				continue
 			}
 
-			if cobj == nil {
-				log.Warnf("GetObject() -> nil")
-				continue
-			}
 			if cnobj == nil {
 				log.Warnf("Get() -> nil")
 				continue
 			}
 
-			fmt.Printf("GetObject: %v/%v[%v]\n", cobj.GetNamespace(), cobj.GetName(), cobj.GetResourceVersion())
 			fmt.Printf("Get: %v/%v[%v]\n", cnobj.GetNamespace(), cnobj.GetName(), cnobj.GetResourceVersion())
 		}
 	}
 }
 
 func getRESTClient(log logutil.Log) rest.Interface {
+	clientset := getClientset(log)
+
+	client := clientset.Core().RESTClient()
+	return client
+}
+
+func getClientset(log logutil.Log) *kubernetes.Clientset {
 	kconfig, err := getKubeRESTConfig()
 	if err != nil {
 		log.ErrFatal(err, "can't get kube client")
@@ -119,9 +106,7 @@ func getRESTClient(log logutil.Log) rest.Interface {
 	if err != nil {
 		log.ErrFatal(err, "can't get clientset")
 	}
-
-	client := clientset.Core().RESTClient()
-	return client
+	return clientset
 }
 
 func getKubeRESTConfig() (*rest.Config, error) {
