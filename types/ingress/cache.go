@@ -15,10 +15,14 @@ type cache struct {
 
 func (c *cache) Get(ns string, name string) (*v1beta1.Ingress, error) {
 	obj, err := c.parent.Get(ns, name)
-	if err != nil {
+	switch {
+	case err != nil:
 		return nil, err
+	case obj == nil:
+		return nil, nil
+	default:
+		return adapter.adaptObject(obj)
 	}
-	return adapter.adaptObject(obj)
 }
 
 func (c *cache) List() ([]*v1beta1.Ingress, error) {
