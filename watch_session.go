@@ -46,7 +46,7 @@ func newWatchSession(ctx context.Context, log logutil.Log, client client.WatchCl
 		outch:   make(chan Event, EventBufsiz),
 		ctx:     ctx,
 		cancel:  cancel,
-		log:     log,
+		log:     log.WithComponent("watch-session"),
 		lc:      lc,
 	}
 
