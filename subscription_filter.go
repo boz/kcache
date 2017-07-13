@@ -33,7 +33,7 @@ func NewFilterSubscription(log logutil.Log, parent Subscription, filter Filter) 
 	s := &filterSubscription{
 		parent:     parent,
 		refilterch: make(chan Filter),
-		outch:      make(chan Event, eventBufsiz),
+		outch:      make(chan Event, EventBufsiz),
 		readych:    make(chan struct{}),
 		stopch:     stopch,
 		cache:      newCache(ctx, log, stopch, filter),

@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	eventBufsiz = 100
+	EventBufsiz = 100
 )
 
 type Subscription interface {
@@ -40,7 +40,7 @@ func newSubscription(log logutil.Log, stopch <-chan struct{}, readych <-chan str
 	s := &_subscription{
 		readych: readych,
 		inch:    make(chan Event),
-		outch:   make(chan Event, eventBufsiz),
+		outch:   make(chan Event, EventBufsiz),
 		cache:   cache,
 		log:     log,
 		lc:      lc,
