@@ -265,7 +265,10 @@ func (c *_cache) doUpdate(evt Event) []Event {
 			events = append(events, NewEvent(EventTypeDelete, obj))
 			delete(c.items, key)
 		case current.version >= entry.version:
-			c.log.Debugf("skipping version %v > %v", current.version, entry.version)
+			if !c.filter.Accept(current.object) {
+				events = append(events, NewEvent(EventTypeDelete, obj))
+				delete(c.items, key)
+			}
 		}
 	}
 
@@ -321,11 +324,14 @@ func (c *_cache) processList(list []metav1.Object) ([]Event, error) {
 		switch {
 		case accept && !found:
 			events = append(events, NewEvent(EventTypeCreate, entry.object))
+			c.items[key] = entry
 		case accept && current.version < entry.version:
 			events = append(events, NewEvent(EventTypeUpdate, entry.object))
 			c.items[key] = entry
 		case current.version >= entry.version:
-			c.log.Debugf("skipping version %v > %v", current.version, entry.version)
+			if !c.filter.Accept(current.object) {
+				continue
+			}
 		default:
 			// don't add to working new working set of objects
 			continue
@@ -337,6 +343,7 @@ func (c *_cache) processList(list []metav1.Object) ([]Event, error) {
 	for k, current := range c.items {
 		if _, ok := set[k]; !ok {
 			events = append(events, NewEvent(EventTypeDelete, current.object))
+			delete(c.items, k)
 		}
 	}
 
