@@ -108,6 +108,8 @@ func (w *_watcher) run() {
 		case <-session.done():
 			w.log.Debugf("session done.  retrying version %v in %v", curVersion, watchRetryDelay)
 
+			session.stop()
+			session = nullWatchSession{}
 			outch = nil
 			retry = w.scheduleRetry(w.resetch, curVersion)
 
