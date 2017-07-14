@@ -40,7 +40,7 @@ func main() {
 
 	defer controller.Close()
 
-	subscription := pod.AdaptSubscription(controller)
+	subscription := pod.SubscribeTo(controller)
 
 	select {
 	case <-subscription.Ready():

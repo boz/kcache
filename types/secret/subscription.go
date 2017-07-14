@@ -2,7 +2,7 @@ package secret
 
 import "github.com/boz/kcache"
 
-func AdaptSubscription(publisher kcache.Publisher) Subscription {
+func SubscribeTo(publisher kcache.Publisher) Subscription {
 	parent := publisher.Subscribe()
 	return newSubscription(parent)
 }
