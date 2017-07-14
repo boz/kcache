@@ -4,17 +4,18 @@ import (
 	"context"
 
 	logutil "github.com/boz/go-logutil"
+	"github.com/boz/kcache/filter"
 )
 
 type FilterSubscription interface {
 	Subscription
-	Refilter(Filter)
+	Refilter(filter.Filter)
 }
 
 type filterSubscription struct {
 	parent Subscription
 
-	refilterch chan Filter
+	refilterch chan filter.Filter
 
 	outch   chan Event
 	readych chan struct{}
@@ -24,7 +25,7 @@ type filterSubscription struct {
 	log logutil.Log
 }
 
-func NewFilterSubscription(log logutil.Log, parent Subscription, filter Filter) FilterSubscription {
+func NewFilterSubscription(log logutil.Log, parent Subscription, fltr filter.Filter) FilterSubscription {
 
 	ctx := context.Background()
 
@@ -32,11 +33,11 @@ func NewFilterSubscription(log logutil.Log, parent Subscription, filter Filter) 
 
 	s := &filterSubscription{
 		parent:     parent,
-		refilterch: make(chan Filter),
+		refilterch: make(chan filter.Filter),
 		outch:      make(chan Event, EventBufsiz),
 		readych:    make(chan struct{}),
 		stopch:     stopch,
-		cache:      newCache(ctx, log, stopch, filter),
+		cache:      newCache(ctx, log, stopch, fltr),
 		log:        log,
 	}
 
@@ -61,7 +62,7 @@ func (s *filterSubscription) Done() <-chan struct{} {
 	return s.parent.Done()
 }
 
-func (s *filterSubscription) Refilter(filter Filter) {
+func (s *filterSubscription) Refilter(filter filter.Filter) {
 	select {
 	case s.refilterch <- filter:
 	case <-s.Done():

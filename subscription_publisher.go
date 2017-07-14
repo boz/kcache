@@ -3,11 +3,12 @@ package kcache
 import (
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
+	"github.com/boz/kcache/filter"
 )
 
 type FilterController interface {
 	Controller
-	Refilter(Filter)
+	Refilter(filter.Filter)
 }
 
 type publisherSubscription struct {
@@ -143,6 +144,6 @@ func (c *filterController) Close() {
 	c.parent.Close()
 }
 
-func (c *filterController) Refilter(filter Filter) {
+func (c *filterController) Refilter(filter filter.Filter) {
 	c.subscription.Refilter(filter)
 }

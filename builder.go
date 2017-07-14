@@ -8,13 +8,14 @@ import (
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/client"
+	"github.com/boz/kcache/filter"
 )
 
 type Builder interface {
 	Context(context.Context) Builder
 	Log(logutil.Log) Builder
 
-	Filter(Filter) Builder
+	Filter(filter.Filter) Builder
 
 	Client(client.Client) Builder
 	Lister() ListerBuilder
@@ -34,7 +35,7 @@ type WatcherBuilder interface {
 
 func NewBuilder() Builder {
 	return &builder{
-		filter: NullFilter(),
+		filter: filter.Null(),
 		ctx:    context.Background(),
 		lb:     newListerBuilder(),
 		wb:     newWatcherBuilder(),
@@ -45,7 +46,7 @@ type builder struct {
 	client client.Client
 	log    logutil.Log
 	ctx    context.Context
-	filter Filter
+	filter filter.Filter
 
 	lb *listerBuilder
 	wb *watcherBuilder
@@ -61,7 +62,7 @@ func (b *builder) Log(log logutil.Log) Builder {
 	return b
 }
 
-func (b *builder) Filter(filter Filter) Builder {
+func (b *builder) Filter(filter filter.Filter) Builder {
 	b.filter = filter
 	return b
 }

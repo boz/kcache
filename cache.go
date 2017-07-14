@@ -7,6 +7,7 @@ import (
 
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
+	"github.com/boz/kcache/filter"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,7 +21,7 @@ type cache interface {
 	CacheReader
 	sync([]metav1.Object) []Event
 	update(Event) []Event
-	refilter([]metav1.Object, Filter) []Event
+	refilter([]metav1.Object, filter.Filter) []Event
 }
 
 type cacheKey struct {
@@ -50,12 +51,12 @@ type updateRequest struct {
 
 type refilterRequest struct {
 	list     []metav1.Object
-	filter   Filter
+	filter   filter.Filter
 	resultch chan<- []Event
 }
 
 type _cache struct {
-	filter     Filter
+	filter     filter.Filter
 	syncch     chan syncRequest
 	updatech   chan updateRequest
 	refilterch chan refilterRequest
@@ -70,7 +71,7 @@ type _cache struct {
 	ctx context.Context
 }
 
-func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, filter Filter) cache {
+func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, filter filter.Filter) cache {
 	log = log.WithComponent("cache")
 
 	c := &_cache{
@@ -120,7 +121,7 @@ func (c *_cache) update(evt Event) []Event {
 	return <-resultch
 }
 
-func (c *_cache) refilter(list []metav1.Object, filter Filter) []Event {
+func (c *_cache) refilter(list []metav1.Object, filter filter.Filter) []Event {
 	defer c.log.Un(c.log.Trace("refilter"))
 	resultch := make(chan []Event, 1)
 	request := refilterRequest{list, filter, resultch}
@@ -221,7 +222,7 @@ func (c *_cache) doSync(list []metav1.Object) []Event {
 	return result
 }
 
-func (c *_cache) doRefilter(list []metav1.Object, filter Filter) []Event {
+func (c *_cache) doRefilter(list []metav1.Object, filter filter.Filter) []Event {
 	c.filter = filter
 	return c.doSync(list)
 }
