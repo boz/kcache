@@ -131,5 +131,5 @@ func (s *_watchSession) connect() (watch.Interface, error) {
 }
 
 func (s *_watchSession) logStatus(status *metav1.Status) {
-	s.log.Infof("STATUS: %v %v [code: %v]", status.Status, status.Reason, status.Code)
+	s.log.Infof("STATUS: %v %v %v [code: %v vsn: %v]", status.Status, status.Message, status.Reason, status.Code, status.GetResourceVersion())
 }
