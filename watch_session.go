@@ -86,6 +86,11 @@ func (s *_watchSession) run() {
 			return
 		case kevt := <-conn.ResultChan():
 
+			if status, ok := kevt.Object.(*metav1.Status); ok {
+				s.logStatus(status)
+				continue
+			}
+
 			obj, err := meta.Accessor(kevt.Object)
 			if err != nil {
 				s.log.ErrWarn(err, "meta.Accessor(%T)", kevt.Object)
@@ -123,4 +128,8 @@ func (s *_watchSession) connect() (watch.Interface, error) {
 		Watch:           true,
 	})
 	return response, err
+}
+
+func (s *_watchSession) logStatus(status *metav1.Status) {
+	s.log.Infof("STATUS: %v %v [code: %v]", status.Status, status.Reason, status.Code)
 }
