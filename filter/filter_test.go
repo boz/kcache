@@ -142,3 +142,15 @@ func TestNSName(t *testing.T) {
 	assert.False(t, filter.NSName(n1).Equals(nil))
 	assert.False(t, filter.NSName().Equals(nil))
 }
+
+func TestFiltersEqual(t *testing.T) {
+
+	assert.True(t, filter.FiltersEqual(nil, nil))
+	assert.True(t, filter.FiltersEqual(filter.Null(), filter.Null()))
+	assert.False(t, filter.FiltersEqual(filter.Null(), nil))
+	assert.False(t, filter.FiltersEqual(filter.Null(), filter.All()))
+	assert.False(t, filter.FiltersEqual(filter.All(), filter.Null()))
+
+	assert.True(t, filter.FiltersEqual(filter.NSName(nsname.New("a", "1")), filter.NSName(nsname.New("a", "1"))))
+	assert.False(t, filter.FiltersEqual(filter.NSName(nsname.New("a", "1")), filter.NSName(nsname.New("a", "2"))))
+}

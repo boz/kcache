@@ -208,7 +208,7 @@ func TestCache_resync(t *testing.T) {
 	// first sync returns zero events
 	assert.Empty(t, cache.sync(initial))
 
-	filter := filter.NSNamesSelector(nsname.New("default", "pod-1"))
+	filter := filter.NSName(nsname.New("default", "pod-1"))
 
 	events := cache.refilter(initial, filter)
 	require.Len(t, events, 1)

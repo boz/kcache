@@ -20,12 +20,14 @@ type filterSubscription struct {
 	outch   chan Event
 	readych chan struct{}
 	stopch  chan struct{}
-	cache   cache
+
+	filter filter.Filter
+	cache  cache
 
 	log logutil.Log
 }
 
-func newFilterSubscription(log logutil.Log, parent Subscription, fltr filter.Filter) FilterSubscription {
+func newFilterSubscription(log logutil.Log, parent Subscription, f filter.Filter) FilterSubscription {
 
 	ctx := context.Background()
 
@@ -37,7 +39,8 @@ func newFilterSubscription(log logutil.Log, parent Subscription, fltr filter.Fil
 		outch:      make(chan Event, EventBufsiz),
 		readych:    make(chan struct{}),
 		stopch:     stopch,
-		cache:      newCache(ctx, log, stopch, fltr),
+		filter:     f,
+		cache:      newCache(ctx, log, stopch, f),
 		log:        log,
 	}
 
@@ -92,7 +95,11 @@ func (s *filterSubscription) run() {
 
 			preadych = nil
 
-		case filter := <-s.refilterch:
+		case f := <-s.refilterch:
+
+			if filter.FiltersEqual(s.filter, f) {
+				continue
+			}
 
 			list, err := s.parent.Cache().List()
 			if err != nil {
@@ -101,7 +108,9 @@ func (s *filterSubscription) run() {
 				continue
 			}
 
-			s.distributeEvents(s.cache.refilter(list, filter))
+			events := s.cache.refilter(list, f)
+			s.filter = f
+			s.distributeEvents(events)
 
 		case evt, ok := <-s.parent.Events():
 			if !ok {

@@ -154,3 +154,19 @@ func (f nsNameFilter) Accept(obj metav1.Object) bool {
 func (f nsNameFilter) Equals(other Filter) bool {
 	return reflect.DeepEqual(f, other)
 }
+
+func FiltersEqual(f1, f2 Filter) bool {
+	if f1 == nil && f2 == nil {
+		return true
+	}
+
+	if f1 == nil || f2 == nil {
+		return false
+	}
+
+	if f1, ok := f1.(ComparableFilter); ok {
+		return f1.Equals(f2)
+	}
+
+	return false
+}
