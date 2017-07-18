@@ -6,10 +6,14 @@ import (
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/client"
+	"github.com/boz/kcache/filter"
 )
 
 type Publisher interface {
 	Subscribe() Subscription
+	SubscribeWithFilter(filter.Filter) FilterSubscription
+	Clone() Controller
+	CloneWithFilter(filter.Filter) FilterController
 }
 
 type CacheController interface {
@@ -67,6 +71,18 @@ func (c *controller) Cache() CacheReader {
 
 func (c *controller) Subscribe() Subscription {
 	return c.publisher.Subscribe()
+}
+
+func (c *controller) SubscribeWithFilter(f filter.Filter) FilterSubscription {
+	return c.publisher.SubscribeWithFilter(f)
+}
+
+func (c *controller) Clone() Controller {
+	return c.publisher.Clone()
+}
+
+func (c *controller) CloneWithFilter(f filter.Filter) FilterController {
+	return c.publisher.CloneWithFilter(f)
 }
 
 func (c *controller) run() {

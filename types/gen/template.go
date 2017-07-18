@@ -5,11 +5,16 @@
 package gen
 
 import (
+	"context"
 	"fmt"
 
+	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache"
+	"github.com/boz/kcache/client"
+	"github.com/boz/kcache/filter"
 	"github.com/cheekybits/genny/generic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 var (
@@ -18,6 +23,11 @@ var (
 )
 
 type ObjectType generic.Type
+
+type Event interface {
+	Type() kcache.EventType
+	Resource() ObjectType
+}
 
 type CacheReader interface {
 	Get(ns string, name string) (ObjectType, error)
@@ -29,16 +39,35 @@ type CacheController interface {
 	Ready() <-chan struct{}
 }
 
-type Event interface {
-	Type() kcache.EventType
-	Resource() ObjectType
-}
-
 type Subscription interface {
 	CacheController
 	Events() <-chan Event
 	Close()
 	Done() <-chan struct{}
+}
+
+type Publisher interface {
+	Subscribe() Subscription
+	SubscribeWithFilter(filter.Filter) FilterSubscription
+	Clone() Controller
+	CloneWithFilter(filter.Filter) FilterController
+}
+
+type Controller interface {
+	CacheController
+	Publisher
+	Done() <-chan struct{}
+	Close()
+}
+
+type FilterSubscription interface {
+	Subscription
+	Refilter(filter.Filter)
+}
+
+type FilterController interface {
+	Controller
+	Refilter(filter.Filter)
 }
 
 type _adapter struct{}
@@ -62,7 +91,7 @@ func (a _adapter) adaptList(objs []metav1.Object) ([]ObjectType, error) {
 	return ret, nil
 }
 
-func NewCache(parent kcache.CacheReader) CacheReader {
+func newCache(parent kcache.CacheReader) CacheReader {
 	return &cache{parent}
 }
 
@@ -111,21 +140,16 @@ func (e event) Resource() ObjectType {
 	return e.resource
 }
 
-func SubscribeTo(publisher kcache.Publisher) Subscription {
-	parent := publisher.Subscribe()
-	return newSubscription(parent)
-}
-
 type subscription struct {
 	parent kcache.Subscription
 	cache  CacheReader
 	outch  chan Event
 }
 
-func newSubscription(parent kcache.Subscription) Subscription {
+func newSubscription(parent kcache.Subscription) *subscription {
 	s := &subscription{
 		parent: parent,
-		cache:  NewCache(parent.Cache()),
+		cache:  newCache(parent.Cache()),
 		outch:  make(chan Event, kcache.EventBufsiz),
 	}
 	go s.run()
@@ -164,4 +188,90 @@ func (s *subscription) Close() {
 
 func (s *subscription) Done() <-chan struct{} {
 	return s.parent.Done()
+}
+
+func NewController(ctx context.Context, log logutil.Log, cs kubernetes.Interface, ns string) (Controller, error) {
+	client := NewClient(cs, ns)
+	return BuildController(ctx, log, client)
+}
+
+func BuildController(ctx context.Context, log logutil.Log, client client.Client) (Controller, error) {
+	parent, err := kcache.NewController(ctx, log, client)
+	if err != nil {
+		return nil, err
+	}
+	return newController(parent), nil
+}
+
+func newController(parent kcache.Controller) *controller {
+	return &controller{parent, newCache(parent.Cache())}
+}
+
+type controller struct {
+	parent kcache.Controller
+	cache  CacheReader
+}
+
+func (c *controller) Close() {
+	c.parent.Close()
+}
+
+func (c *controller) Ready() <-chan struct{} {
+	return c.parent.Ready()
+}
+
+func (c *controller) Done() <-chan struct{} {
+	return c.parent.Done()
+}
+
+func (c *controller) Cache() CacheReader {
+	return c.cache
+}
+
+func (c *controller) Subscribe() Subscription {
+	return newSubscription(c.parent.Subscribe())
+}
+
+func (c *controller) SubscribeWithFilter(f filter.Filter) FilterSubscription {
+	return newFilterSubscription(c.parent.SubscribeWithFilter(f))
+}
+
+func (c *controller) Clone() Controller {
+	return newController(c.parent.Clone())
+}
+
+func (c *controller) CloneWithFilter(f filter.Filter) FilterController {
+	return newFilterController(c.parent.CloneWithFilter(f))
+}
+
+type filterController struct {
+	controller
+	filterParent kcache.FilterController
+}
+
+func newFilterController(parent kcache.FilterController) FilterController {
+	return &filterController{
+		controller:   controller{parent, newCache(parent.Cache())},
+		filterParent: parent,
+	}
+}
+
+func (c *filterController) Refilter(f filter.Filter) {
+	c.filterParent.Refilter(f)
+}
+
+type filterSubscription struct {
+	subscription
+	filterParent kcache.FilterSubscription
+}
+
+func newFilterSubscription(parent kcache.FilterSubscription) FilterSubscription {
+	return &filterSubscription{
+		subscription: *newSubscription(parent),
+		filterParent: parent,
+	}
+}
+
+func (s *filterSubscription) Refilter(f filter.Filter) {
+	s.filterParent.Refilter(f)
 }

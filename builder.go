@@ -95,7 +95,7 @@ func (b *builder) Create() (Controller, error) {
 	readych := make(chan struct{})
 
 	subscription := newSubscription(log, lc.ShuttingDown(), readych, cache)
-	publisher := NewPublisher(log, subscription)
+	publisher := newPublisher(log, subscription)
 
 	c := &controller{
 		readych: readych,

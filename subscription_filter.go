@@ -25,7 +25,7 @@ type filterSubscription struct {
 	log logutil.Log
 }
 
-func NewFilterSubscription(log logutil.Log, parent Subscription, fltr filter.Filter) FilterSubscription {
+func newFilterSubscription(log logutil.Log, parent Subscription, fltr filter.Filter) FilterSubscription {
 
 	ctx := context.Background()
 

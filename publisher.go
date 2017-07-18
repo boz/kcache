@@ -11,7 +11,7 @@ type FilterController interface {
 	Refilter(filter.Filter)
 }
 
-type publisherSubscription struct {
+type publisher struct {
 	parent Subscription
 
 	subscribech   chan chan<- Subscription
@@ -22,8 +22,8 @@ type publisherSubscription struct {
 	log logutil.Log
 }
 
-func NewPublisher(log logutil.Log, parent Subscription) Controller {
-	s := &publisherSubscription{
+func newPublisher(log logutil.Log, parent Subscription) Controller {
+	s := &publisher{
 		parent:        parent,
 		subscribech:   make(chan chan<- Subscription),
 		unsubscribech: make(chan subscription),
@@ -37,23 +37,23 @@ func NewPublisher(log logutil.Log, parent Subscription) Controller {
 	return s
 }
 
-func (s *publisherSubscription) Ready() <-chan struct{} {
+func (s *publisher) Ready() <-chan struct{} {
 	return s.parent.Ready()
 }
 
-func (s *publisherSubscription) Cache() CacheReader {
+func (s *publisher) Cache() CacheReader {
 	return s.parent.Cache()
 }
 
-func (s *publisherSubscription) Close() {
+func (s *publisher) Close() {
 	s.parent.Close()
 }
 
-func (s *publisherSubscription) Done() <-chan struct{} {
+func (s *publisher) Done() <-chan struct{} {
 	return s.lc.Done()
 }
 
-func (s *publisherSubscription) Subscribe() Subscription {
+func (s *publisher) Subscribe() Subscription {
 	resultch := make(chan Subscription, 1)
 	select {
 	case <-s.lc.ShuttingDown():
@@ -63,7 +63,19 @@ func (s *publisherSubscription) Subscribe() Subscription {
 	}
 }
 
-func (s *publisherSubscription) run() {
+func (s *publisher) SubscribeWithFilter(f filter.Filter) FilterSubscription {
+	return newFilterSubscription(s.log, s.Subscribe(), f)
+}
+
+func (s *publisher) Clone() Controller {
+	return newPublisher(s.log, s.Subscribe())
+}
+
+func (s *publisher) CloneWithFilter(f filter.Filter) FilterController {
+	return newFilterPublisher(s.log, s.SubscribeWithFilter(f))
+}
+
+func (s *publisher) run() {
 	defer s.log.Un(s.log.Trace("run"))
 	defer s.lc.ShutdownCompleted()
 	defer s.lc.ShutdownInitiated()
@@ -83,13 +95,13 @@ func (s *publisherSubscription) run() {
 	}
 }
 
-func (s *publisherSubscription) distributeEvent(evt Event) {
+func (s *publisher) distributeEvent(evt Event) {
 	for sub := range s.subscriptions {
 		sub.send(evt)
 	}
 }
 
-func (s *publisherSubscription) createSubscription() Subscription {
+func (s *publisher) createSubscription() Subscription {
 	defer s.log.Un(s.log.Trace("doSubscribe"))
 
 	sub := newSubscription(s.log, s.lc.ShuttingDown(), s.parent.Ready(), s.parent.Cache())
@@ -115,8 +127,8 @@ func (s *publisherSubscription) createSubscription() Subscription {
 	return sub
 }
 
-func NewFilterPublisher(log logutil.Log, subscription FilterSubscription) FilterController {
-	return &filterController{subscription, NewPublisher(log, subscription)}
+func newFilterPublisher(log logutil.Log, subscription FilterSubscription) FilterController {
+	return &filterController{subscription, newPublisher(log, subscription)}
 }
 
 type filterController struct {
@@ -134,6 +146,18 @@ func (c *filterController) Ready() <-chan struct{} {
 
 func (c *filterController) Subscribe() Subscription {
 	return c.parent.Subscribe()
+}
+
+func (c *filterController) SubscribeWithFilter(f filter.Filter) FilterSubscription {
+	return c.parent.SubscribeWithFilter(f)
+}
+
+func (c *filterController) Clone() Controller {
+	return c.parent.Clone()
+}
+
+func (c *filterController) CloneWithFilter(f filter.Filter) FilterController {
+	return c.parent.CloneWithFilter(f)
 }
 
 func (c *filterController) Done() <-chan struct{} {
