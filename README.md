@@ -8,9 +8,10 @@ See example usage [here](_example/main.go)
 
  * Uses goprocs and channels instead of mutexes and condition variables (no need to poll when ready)
  * Allows multiple subscribers
+ * Filtering, with in-place filter update.
  * Does not emit "add" events on every resync
- * Does not (currently) support indexes.
- * Kcache does not handle connection/timeout errors well
+ * no "indexes", but easy to roll your own.
+ * Types for common objects (currently Pod,Ingress,Service,Secret)
 
 ## Status
 
@@ -19,6 +20,5 @@ WIP; not ready for production.
 ### TODO
 
  * Tests
- * Indexes (will be subscribers) and filters
  * Documentation
-
+ * Add more generated types
