@@ -45,6 +45,12 @@
 			"revisionTime": "2017-04-29T10:26:45Z"
 		},
 		{
+			"checksumSHA1": "PYXuf7wvcj492uWhjvmXlyyQUYc=",
+			"path": "github.com/cheekybits/genny/generic",
+			"revision": "9127e812e1e9e501ce899a18121d316ecb52e4ba",
+			"revisionTime": "2017-03-28T20:00:08Z"
+		},
+		{
 			"checksumSHA1": "vM0AXBjMyPUVF7sLxjXX0to78l0=",
 			"path": "github.com/coreos/go-oidc/http",
 			"revision": "5157aa730c25a7531d4b99483e6a440d4ab735a0",
