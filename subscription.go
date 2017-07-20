@@ -80,7 +80,6 @@ func (s *_subscription) send(ev Event) {
 }
 
 func (s *_subscription) run() {
-	defer s.log.Un(s.log.Trace("run"))
 	defer s.lc.ShutdownCompleted()
 	defer s.lc.ShutdownInitiated()
 	defer close(s.outch)

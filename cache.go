@@ -93,7 +93,6 @@ func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, filt
 }
 
 func (c *_cache) sync(list []metav1.Object) []Event {
-	defer c.log.Un(c.log.Trace("sync"))
 	resultch := make(chan []Event, 1)
 	request := syncRequest{list, resultch}
 
@@ -107,8 +106,6 @@ func (c *_cache) sync(list []metav1.Object) []Event {
 }
 
 func (c *_cache) update(evt Event) []Event {
-	defer c.log.Un(c.log.Trace("update"))
-
 	resultch := make(chan []Event, 1)
 	request := updateRequest{evt, resultch}
 
@@ -122,7 +119,6 @@ func (c *_cache) update(evt Event) []Event {
 }
 
 func (c *_cache) refilter(list []metav1.Object, filter filter.Filter) []Event {
-	defer c.log.Un(c.log.Trace("refilter"))
 	resultch := make(chan []Event, 1)
 	request := refilterRequest{list, filter, resultch}
 
@@ -136,7 +132,6 @@ func (c *_cache) refilter(list []metav1.Object, filter filter.Filter) []Event {
 }
 
 func (c *_cache) List() ([]metav1.Object, error) {
-	defer c.log.Un(c.log.Trace("List"))
 	resultch := make(chan []metav1.Object, 1)
 
 	select {
@@ -153,8 +148,6 @@ func (c *_cache) GetObject(obj metav1.Object) (metav1.Object, error) {
 }
 
 func (c *_cache) Get(ns, name string) (metav1.Object, error) {
-	defer c.log.Un(c.log.Trace("Get"))
-
 	resultch := make(chan metav1.Object, 1)
 	key := cacheKey{ns, name}
 	request := getRequest{key, resultch}
@@ -167,8 +160,6 @@ func (c *_cache) Get(ns, name string) (metav1.Object, error) {
 }
 
 func (c *_cache) run() {
-	defer c.log.Un(c.log.Trace("run"))
-
 	defer c.lc.ShutdownCompleted()
 	for {
 		select {
@@ -206,8 +197,6 @@ func (c *_cache) doList() []metav1.Object {
 }
 
 func (c *_cache) doSync(list []metav1.Object) []Event {
-	defer c.log.Un(c.log.Trace("doSync"))
-
 	var result []Event
 
 	if c.items == nil {
@@ -228,8 +217,6 @@ func (c *_cache) doRefilter(list []metav1.Object, filter filter.Filter) []Event 
 }
 
 func (c *_cache) doUpdate(evt Event) []Event {
-	defer c.log.Un(c.log.Trace("doUpdate"))
-
 	events := make([]Event, 0, 1)
 
 	obj := evt.Resource()

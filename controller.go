@@ -86,7 +86,6 @@ func (c *controller) CloneWithFilter(f filter.Filter) FilterController {
 }
 
 func (c *controller) run() {
-	defer c.log.Un(c.log.Trace("run"))
 	defer c.lc.ShutdownCompleted()
 	defer c.lc.ShutdownInitiated()
 	initialized := false
@@ -99,13 +98,13 @@ func (c *controller) run() {
 		case result := <-c.lister.Result():
 
 			if result.err != nil {
-				c.log.Err(result.err, "lister.Result()")
+				c.log.Err(result.err, "lister error")
 				return
 			}
 
 			version, err := listResourceVersion(result.list)
 			if err != nil {
-				c.log.Err(result.err, "lister.Result()")
+				c.log.Err(result.err, "error fetching resource version")
 				return
 			}
 
@@ -116,6 +115,8 @@ func (c *controller) run() {
 			}
 
 			events := c.cache.sync(list)
+
+			c.log.Debugf("list complete: version: %v, items: %v, events: %v", version, len(list), len(events))
 
 			if !initialized {
 				initialized = true

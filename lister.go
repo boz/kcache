@@ -63,7 +63,6 @@ func (l *_lister) Result() <-chan listResult {
 }
 
 func (l *_lister) run() {
-	defer l.log.Un(l.log.Trace("list"))
 	defer l.lc.ShutdownCompleted()
 
 	var tickch <-chan time.Time
@@ -79,6 +78,7 @@ func (l *_lister) run() {
 		select {
 		case <-tickch:
 			l.drainTicker(ticker)
+			l.log.Debugf("fetching list...")
 			runch = l.list()
 			tickch = nil
 			ticker = nil
@@ -101,7 +101,6 @@ func (l *_lister) run() {
 }
 
 func (l *_lister) list() <-chan listResult {
-	defer l.log.Un(l.log.Trace("list"))
 	runch := make(chan listResult, 1)
 
 	go func() {
@@ -117,8 +116,6 @@ func (l *_lister) list() <-chan listResult {
 }
 
 func (l *_lister) executeList(ctx context.Context) listResult {
-	defer l.log.Un(l.log.Trace("executeList"))
-
 	list, err := l.client.List(ctx, v1.ListOptions{})
 	if err != nil {
 		l.log.ErrWarn(err, "client.List()")

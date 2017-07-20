@@ -76,7 +76,6 @@ func (s *publisher) CloneWithFilter(f filter.Filter) FilterController {
 }
 
 func (s *publisher) run() {
-	defer s.log.Un(s.log.Trace("run"))
 	defer s.lc.ShutdownCompleted()
 	defer s.lc.ShutdownInitiated()
 
@@ -102,8 +101,6 @@ func (s *publisher) distributeEvent(evt Event) {
 }
 
 func (s *publisher) createSubscription() Subscription {
-	defer s.log.Un(s.log.Trace("doSubscribe"))
-
 	sub := newSubscription(s.log, s.lc.ShuttingDown(), s.parent.Ready(), s.parent.Cache())
 
 	s.subscriptions[sub] = struct{}{}

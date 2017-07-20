@@ -73,7 +73,6 @@ func (s *filterSubscription) Refilter(filter filter.Filter) {
 }
 
 func (s *filterSubscription) run() {
-	defer s.log.Un(s.log.Trace("run"))
 	defer close(s.outch)
 	defer close(s.stopch)
 
