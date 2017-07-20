@@ -6,7 +6,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const resourceName = "ingresses"
+
 func NewClient(cs kubernetes.Interface, ns string) client.Client {
-	return client.ForResource(
-		cs.ExtensionsV1beta1().RESTClient(), "ingresses", ns, fields.Everything())
+	scope := cs.ExtensionsV1beta1()
+	return client.ForResource(scope.RESTClient(), resourceName, ns, fields.Everything())
 }
