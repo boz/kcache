@@ -1,6 +1,9 @@
 build:
 	govendor build +local
 
+test:
+	govendor test +local
+
 install-libs:
 	govendor install +vendor,^program
 
