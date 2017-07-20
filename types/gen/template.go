@@ -70,6 +70,21 @@ type FilterController interface {
 	Refilter(filter.Filter)
 }
 
+type Handler interface {
+	OnInitialize([]ObjectType)
+	OnCreate(ObjectType)
+	OnUpdate(ObjectType)
+	OnDelete(ObjectType)
+}
+
+type HandlerBuilder interface {
+	OnInitialize(func([]ObjectType)) HandlerBuilder
+	OnCreate(func(ObjectType)) HandlerBuilder
+	OnUpdate(func(ObjectType)) HandlerBuilder
+	OnDelete(func(ObjectType)) HandlerBuilder
+	Create() Handler
+}
+
 type _adapter struct{}
 
 func (_adapter) adaptObject(obj metav1.Object) (ObjectType, error) {
@@ -274,4 +289,89 @@ func newFilterSubscription(parent kcache.FilterSubscription) FilterSubscription 
 
 func (s *filterSubscription) Refilter(f filter.Filter) {
 	s.filterParent.Refilter(f)
+}
+
+func NewMonitor(publisher Publisher, handler Handler) kcache.Monitor {
+	phandler := kcache.NewHandlerBuilder().
+		OnInitialize(func(objs []metav1.Object) {
+			aobjs, _ := adapter.adaptList(objs)
+			handler.OnInitialize(aobjs)
+		}).
+		OnCreate(func(obj metav1.Object) {
+			aobj, _ := adapter.adaptObject(obj)
+			handler.OnCreate(aobj)
+		}).
+		OnUpdate(func(obj metav1.Object) {
+			aobj, _ := adapter.adaptObject(obj)
+			handler.OnUpdate(aobj)
+		}).
+		OnDelete(func(obj metav1.Object) {
+			aobj, _ := adapter.adaptObject(obj)
+			handler.OnDelete(aobj)
+		}).Create()
+
+	controller := publisher.(*controller)
+
+	return kcache.NewMonitor(controller.parent, phandler)
+}
+
+func NewHandlerBuilder() HandlerBuilder {
+	return &handlerBuilder{}
+}
+
+type handler struct {
+	onInitialize func([]ObjectType)
+	onCreate     func(ObjectType)
+	onUpdate     func(ObjectType)
+	onDelete     func(ObjectType)
+}
+
+type handlerBuilder handler
+
+func (hb *handlerBuilder) OnInitialize(fn func([]ObjectType)) HandlerBuilder {
+	hb.onInitialize = fn
+	return hb
+}
+
+func (hb *handlerBuilder) OnCreate(fn func(ObjectType)) HandlerBuilder {
+	hb.onCreate = fn
+	return hb
+}
+
+func (hb *handlerBuilder) OnUpdate(fn func(ObjectType)) HandlerBuilder {
+	hb.onUpdate = fn
+	return hb
+}
+
+func (hb *handlerBuilder) OnDelete(fn func(ObjectType)) HandlerBuilder {
+	hb.onDelete = fn
+	return hb
+}
+
+func (hb *handlerBuilder) Create() Handler {
+	return handler(*hb)
+}
+
+func (h handler) OnInitialize(objs []ObjectType) {
+	if h.onInitialize != nil {
+		h.onInitialize(objs)
+	}
+}
+
+func (h handler) OnCreate(obj ObjectType) {
+	if h.onCreate != nil {
+		h.onCreate(obj)
+	}
+}
+
+func (h handler) OnUpdate(obj ObjectType) {
+	if h.onUpdate != nil {
+		h.onUpdate(obj)
+	}
+}
+
+func (h handler) OnDelete(obj ObjectType) {
+	if h.onDelete != nil {
+		h.onDelete(obj)
+	}
 }
