@@ -5,8 +5,6 @@ import (
 
 	"github.com/boz/kcache/nsname"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 type Filter interface {
@@ -91,43 +89,6 @@ func (f *labelsFilter) Equals(other Filter) bool {
 			}
 		}
 		return true
-	}
-	return false
-}
-
-// ServiceFor() returns a filter if the object
-// is a Service whose selector mateches the given target.
-func ServiceFor(target map[string]string) ComparableFilter {
-	return &serviceForFilter{target}
-}
-
-type serviceForFilter struct {
-	target map[string]string
-}
-
-func (f *serviceForFilter) Accept(obj metav1.Object) bool {
-	svc, ok := obj.(*v1.Service)
-
-	if !ok {
-		return false
-	}
-
-	if len(svc.Spec.Selector) == 0 || len(f.target) == 0 {
-		return false
-	}
-
-	for k, v := range svc.Spec.Selector {
-		if val, ok := f.target[k]; !ok || val != v {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (f *serviceForFilter) Equals(other Filter) bool {
-	if other, ok := other.(*serviceForFilter); ok {
-		return labels.Equals(f.target, other.target)
 	}
 	return false
 }

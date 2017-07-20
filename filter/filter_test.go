@@ -67,56 +67,6 @@ func TestLabels(t *testing.T) {
 	assert.False(t, fempty.Equals(f))
 }
 
-func TestServiceFor(t *testing.T) {
-	target := map[string]string{"a": "1"}
-	tsuper := map[string]string{"a": "1", "b": "2"}
-	tmiss := map[string]string{"a": "2"}
-
-	gensvc := func(labels map[string]string) metav1.Object {
-		return &v1.Service{Spec: v1.ServiceSpec{Selector: labels}}
-	}
-
-	{
-		f := filter.ServiceFor(target)
-		assert.True(t, f.Accept(gensvc(target)))
-		assert.False(t, f.Accept(gensvc(tsuper)))
-		assert.False(t, f.Accept(gensvc(tmiss)))
-		assert.False(t, f.Accept(gensvc(nil)))
-
-		assert.False(t, f.Accept(&v1.Pod{}))
-	}
-
-	{
-		f := filter.ServiceFor(tsuper)
-		assert.True(t, f.Accept(gensvc(target)))
-		assert.True(t, f.Accept(gensvc(tsuper)))
-		assert.False(t, f.Accept(gensvc(tmiss)))
-	}
-
-	{
-		f := filter.ServiceFor(nil)
-		assert.False(t, f.Accept(gensvc(target)))
-	}
-
-	{
-		f := filter.ServiceFor(target)
-		fsuper := filter.ServiceFor(tsuper)
-		fnil := filter.ServiceFor(nil)
-
-		assert.True(t, f.Equals(f))
-		assert.False(t, f.Equals(fsuper))
-		assert.False(t, f.Equals(fnil))
-
-		assert.True(t, fnil.Equals(fnil))
-		assert.False(t, fnil.Equals(fsuper))
-		assert.False(t, fnil.Equals(f))
-
-		assert.True(t, fsuper.Equals(fsuper))
-		assert.False(t, fsuper.Equals(fnil))
-		assert.False(t, fsuper.Equals(f))
-	}
-}
-
 func TestNSName(t *testing.T) {
 	n1 := nsname.New("a", "1")
 	n2 := nsname.New("a", "2")
