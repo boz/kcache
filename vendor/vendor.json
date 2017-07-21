@@ -153,6 +153,18 @@
 			"revisionTime": "2017-07-17T23:55:51Z"
 		},
 		{
+			"checksumSHA1": "K6exl2ouL7d8cR2i378EzZOdRVI=",
+			"path": "github.com/howeyc/gopass",
+			"revision": "bf9dde6d0d2c004a008c27aaee91170c786f6db8",
+			"revisionTime": "2017-01-09T16:22:49Z"
+		},
+		{
+			"checksumSHA1": "66lykxpWgSmQodnhkADqn6tnroQ=",
+			"path": "github.com/imdario/mergo",
+			"revision": "e3000cb3d28c72b837601cac94debd91032d19fe",
+			"revisionTime": "2017-06-20T10:47:01Z"
+		},
+		{
 			"checksumSHA1": "a8Ge6pE7oxux9ZMZVAlyEeGzCng=",
 			"path": "github.com/juju/ratelimit",
 			"revision": "5b9ff866471762aa2ab2dced63c9fb6f53921342",
@@ -193,6 +205,12 @@
 			"path": "github.com/ugorji/go/codec",
 			"revision": "5efa3251c7f7d05e5d9704a69a984ec9f1386a40",
 			"revisionTime": "2017-06-20T10:48:52Z"
+		},
+		{
+			"checksumSHA1": "ZaU56svwLgiJD0y8JOB3+/mpYBA=",
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": "6914964337150723782436d56b3f21610a74ce7b",
+			"revisionTime": "2017-07-20T17:50:53Z"
 		},
 		{
 			"checksumSHA1": "kKuxyoDujo5CopTxAvvZ1rrLdd0=",
@@ -795,8 +813,32 @@
 			"revisionTime": "2017-07-19T03:39:24Z"
 		},
 		{
+			"checksumSHA1": "1ckiORH3dJD8v3R8tLEZ/5wttAk=",
+			"path": "k8s.io/client-go/tools/auth",
+			"revision": "7c69e980210777a6292351ac6873de083526f08e",
+			"revisionTime": "2017-07-19T03:39:24Z"
+		},
+		{
+			"checksumSHA1": "Gtx0kl7ys4YxBUldj0+tRBq74UE=",
+			"path": "k8s.io/client-go/tools/clientcmd",
+			"revision": "7c69e980210777a6292351ac6873de083526f08e",
+			"revisionTime": "2017-07-19T03:39:24Z"
+		},
+		{
 			"checksumSHA1": "kZ0prON09TNmwo214/TPRNV8X9g=",
 			"path": "k8s.io/client-go/tools/clientcmd/api",
+			"revision": "7c69e980210777a6292351ac6873de083526f08e",
+			"revisionTime": "2017-07-19T03:39:24Z"
+		},
+		{
+			"checksumSHA1": "e13IQ1Gppt/nnvoj8mGsG3z0B0M=",
+			"path": "k8s.io/client-go/tools/clientcmd/api/latest",
+			"revision": "7c69e980210777a6292351ac6873de083526f08e",
+			"revisionTime": "2017-07-19T03:39:24Z"
+		},
+		{
+			"checksumSHA1": "mxjaZ4rYUeOMqtcYO9UgMGxuxdM=",
+			"path": "k8s.io/client-go/tools/clientcmd/api/v1",
 			"revision": "7c69e980210777a6292351ac6873de083526f08e",
 			"revisionTime": "2017-07-19T03:39:24Z"
 		},
@@ -821,6 +863,12 @@
 		{
 			"checksumSHA1": "tkLvW7FEYZrzfG4yplNT+Pod1gY=",
 			"path": "k8s.io/client-go/util/flowcontrol",
+			"revision": "7c69e980210777a6292351ac6873de083526f08e",
+			"revisionTime": "2017-07-19T03:39:24Z"
+		},
+		{
+			"checksumSHA1": "jP91eRmXcfaEo/NU7Lk1coovunQ=",
+			"path": "k8s.io/client-go/util/homedir",
 			"revision": "7c69e980210777a6292351ac6873de083526f08e",
 			"revisionTime": "2017-07-19T03:39:24Z"
 		},
