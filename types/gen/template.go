@@ -310,9 +310,14 @@ func NewMonitor(publisher Publisher, handler Handler) kcache.Monitor {
 			handler.OnDelete(aobj)
 		}).Create()
 
-	controller := publisher.(*controller)
-
-	return kcache.NewMonitor(controller.parent, phandler)
+	switch obj := publisher.(type) {
+	case *controller:
+		return kcache.NewMonitor(obj.parent, phandler)
+	case *filterController:
+		return kcache.NewMonitor(obj.parent, phandler)
+	default:
+		panic(fmt.Sprintf("Invalid publisher type: %T is not a *controller", publisher))
+	}
 }
 
 func NewHandlerBuilder() HandlerBuilder {
