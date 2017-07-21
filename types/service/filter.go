@@ -2,9 +2,9 @@ package service
 
 import (
 	"github.com/boz/kcache/filter"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 // SelectorMatchFilter() removes all objects that are not services whose

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -57,29 +56,28 @@ type restRequester interface {
 }
 
 func ForResource(
-	c restRequester, res string, ns string, fsel fields.Selector) Client {
+	c restRequester, res string, ns string) Client {
 	return NewClient(
-		makeResourceListFn(c, res, ns, fsel),
-		makeResourceWatchFn(c, res, ns, fsel),
+		makeResourceListFn(c, res, ns),
+		makeResourceWatchFn(c, res, ns),
 	)
 }
 
 func makeResourceListFn(
-	c restRequester, res string, ns string, fsel fields.Selector) ListFn {
+	c restRequester, res string, ns string) ListFn {
 	return func(ctx context.Context, opts v1.ListOptions) (runtime.Object, error) {
 		return c.Get().
 			Context(ctx).
 			Namespace(ns).
 			Resource(res).
 			VersionedParams(&opts, scheme.ParameterCodec).
-			FieldsSelectorParam(fsel).
 			Do().
 			Get()
 	}
 }
 
 func makeResourceWatchFn(
-	c restRequester, res string, ns string, fsel fields.Selector) WatchFn {
+	c restRequester, res string, ns string) WatchFn {
 
 	return func(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 		return c.Get().
@@ -88,7 +86,6 @@ func makeResourceWatchFn(
 			Namespace(ns).
 			Resource(res).
 			VersionedParams(&opts, scheme.ParameterCodec).
-			FieldsSelectorParam(fsel).
 			Watch()
 	}
 }
