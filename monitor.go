@@ -16,13 +16,6 @@ type Handler interface {
 	OnDelete(metav1.Object)
 }
 
-type UnitaryHandler interface {
-	OnInitialize(metav1.Object)
-	OnCreate(metav1.Object)
-	OnUpdate(metav1.Object)
-	OnDelete(metav1.Object)
-}
-
 type HandlerBuilder interface {
 	OnInitialize(func([]metav1.Object)) HandlerBuilder
 	OnCreate(func(metav1.Object)) HandlerBuilder
@@ -31,7 +24,7 @@ type HandlerBuilder interface {
 	Create() Handler
 }
 
-func NewHandlerBuilder() HandlerBuilder {
+func BuildHandler() HandlerBuilder {
 	return &handlerBuilder{}
 }
 
