@@ -21,6 +21,12 @@
 			"revisionTime": "2017-05-05T05:50:23Z"
 		},
 		{
+			"checksumSHA1": "RbrHd5G9zza4sHNZ77AMjZoOCSQ=",
+			"path": "github.com/boz/go-logutil/logrus",
+			"revision": "f8a71b2c319849636cebe9322411f078b6b35262",
+			"revisionTime": "2017-05-05T05:50:23Z"
+		},
+		{
 			"checksumSHA1": "mrz/kicZiUaHxkyfvC/DyQcr8Do=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "adab96458c51a58dc1783b3335dcce5461522e75",
@@ -171,6 +177,12 @@
 			"revisionTime": "2017-06-24T19:09:26Z"
 		},
 		{
+			"checksumSHA1": "i1Ziv0l+Mg4+QepkJXHyLU2tGqY=",
+			"path": "github.com/sirupsen/logrus",
+			"revision": "00386b3fbd637582f90cb17482dc3087646c0ac2",
+			"revisionTime": "2017-07-19T15:47:53Z"
+		},
+		{
 			"checksumSHA1": "STxYqRb4gnlSr3mRpT+Igfdz/kM=",
 			"path": "github.com/spf13/pflag",
 			"revision": "e57e3eeb33f795204c1ca35f56c44f83227c6e66",
@@ -205,6 +217,12 @@
 			"path": "golang.org/x/net/lex/httplex",
 			"revision": "7b7efd8000731a766f6cbfa2c04010627521c66e",
 			"revisionTime": "2017-07-20T00:19:16Z"
+		},
+		{
+			"checksumSHA1": "clYzF13hcnUKF7X/o5TgvjrCLdM=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "7a4fde3fda8ef580a89dbae8138c26041be14299",
+			"revisionTime": "2017-06-29T20:26:00Z"
 		},
 		{
 			"checksumSHA1": "faFDXp++cLjLBlvsr+izZ+go1WU=",
