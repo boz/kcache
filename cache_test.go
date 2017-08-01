@@ -189,7 +189,7 @@ func TestCache_update(t *testing.T) {
 	require.Equal(t, 2, len(found))
 }
 
-func TestCache_resync(t *testing.T) {
+func TestCache_refilter(t *testing.T) {
 	initial := []metav1.Object{
 		genPod("default", "pod-1", "1"),
 		genPod("default", "pod-2", "2"),
@@ -221,6 +221,14 @@ func TestCache_resync(t *testing.T) {
 	require.Len(t, list, 1)
 	obj := list[0]
 	require.Equal(t, "pod-1", obj.GetName())
+
+	assert.Empty(t, cache.update(NewEvent(EventTypeDelete, genPod("default", "pod-2", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeUpdate, genPod("default", "pod-2", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeCreate, genPod("default", "pod-2", "3"))))
+
+	assert.Empty(t, cache.update(NewEvent(EventTypeDelete, genPod("default", "pod-3", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeUpdate, genPod("default", "pod-3", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeCreate, genPod("default", "pod-3", "3"))))
 }
 
 func genPod(ns, name, vsn string) *v1.Pod {

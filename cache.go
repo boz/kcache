@@ -242,16 +242,21 @@ func (c *_cache) doUpdate(evt Event) []Event {
 		}
 	default:
 		switch {
+		case !accept && !found:
+			// do nothing
 		case accept && !found:
+			// create
 			events = append(events, NewEvent(EventTypeCreate, obj))
 			c.items[key] = entry
 		case accept && current.version < entry.version:
+			// update
 			events = append(events, NewEvent(EventTypeUpdate, obj))
 			c.items[key] = entry
 		case !accept && current.version < entry.version:
+			// filter-delete
 			events = append(events, NewEvent(EventTypeDelete, obj))
 			delete(c.items, key)
-		case current.version >= entry.version:
+		case found && current.version >= entry.version:
 			if !c.filter.Accept(current.object) {
 				events = append(events, NewEvent(EventTypeDelete, obj))
 				delete(c.items, key)
