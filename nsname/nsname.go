@@ -2,6 +2,7 @@ package nsname
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,4 +29,8 @@ func New(ns, name string) NSName {
 
 func ForObject(obj metav1.Object) NSName {
 	return New(obj.GetNamespace(), obj.GetName())
+}
+
+func (obj NSName) String() string {
+	return fmt.Sprintf("%v/%v", obj.Namespace, obj.Name)
 }
