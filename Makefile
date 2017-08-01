@@ -4,8 +4,15 @@ build:
 test:
 	govendor test +local
 
+test-full: example
+	govendor test -v -race +local
+
 install-libs:
 	govendor install +vendor,^program
+
+install-deps:
+	go get github.com/kardianos/govendor
+	govendor sync
 
 generate-types:
 	genny -in=types/gen/template.go -out=types/pod/generated.go -pkg=pod gen 'ObjectType=*v1.Pod'
@@ -18,4 +25,4 @@ generate-types:
 example:
 	go build -o _example/example ./_example
 
-.PHONY: build install-libs example
+.PHONY: build test test-full install-deps install-libs example
