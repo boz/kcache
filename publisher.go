@@ -53,26 +53,38 @@ func (s *publisher) Done() <-chan struct{} {
 	return s.lc.Done()
 }
 
-func (s *publisher) Subscribe() Subscription {
+func (s *publisher) Subscribe() (Subscription, error) {
 	resultch := make(chan Subscription, 1)
 	select {
 	case <-s.lc.ShuttingDown():
-		return nil
+		return nil, ErrNotRunning
 	case s.subscribech <- resultch:
-		return <-resultch
+		return <-resultch, nil
 	}
 }
 
-func (s *publisher) SubscribeWithFilter(f filter.Filter) FilterSubscription {
-	return newFilterSubscription(s.log, s.Subscribe(), f)
+func (s *publisher) SubscribeWithFilter(f filter.Filter) (FilterSubscription, error) {
+	sub, err := s.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+	return newFilterSubscription(s.log, sub, f), nil
 }
 
-func (s *publisher) Clone() Controller {
-	return newPublisher(s.log, s.Subscribe())
+func (s *publisher) Clone() (Controller, error) {
+	sub, err := s.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+	return newPublisher(s.log, sub), nil
 }
 
-func (s *publisher) CloneWithFilter(f filter.Filter) FilterController {
-	return newFilterPublisher(s.log, s.SubscribeWithFilter(f))
+func (s *publisher) CloneWithFilter(f filter.Filter) (FilterController, error) {
+	sub, err := s.SubscribeWithFilter(f)
+	if err != nil {
+		return nil, err
+	}
+	return newFilterPublisher(s.log, sub), nil
 }
 
 func (s *publisher) run() {
@@ -141,19 +153,19 @@ func (c *filterController) Ready() <-chan struct{} {
 	return c.parent.Ready()
 }
 
-func (c *filterController) Subscribe() Subscription {
+func (c *filterController) Subscribe() (Subscription, error) {
 	return c.parent.Subscribe()
 }
 
-func (c *filterController) SubscribeWithFilter(f filter.Filter) FilterSubscription {
+func (c *filterController) SubscribeWithFilter(f filter.Filter) (FilterSubscription, error) {
 	return c.parent.SubscribeWithFilter(f)
 }
 
-func (c *filterController) Clone() Controller {
+func (c *filterController) Clone() (Controller, error) {
 	return c.parent.Clone()
 }
 
-func (c *filterController) CloneWithFilter(f filter.Filter) FilterController {
+func (c *filterController) CloneWithFilter(f filter.Filter) (FilterController, error) {
 	return c.parent.CloneWithFilter(f)
 }
 

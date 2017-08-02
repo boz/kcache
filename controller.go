@@ -2,6 +2,7 @@ package kcache
 
 import (
 	"context"
+	"errors"
 
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
@@ -9,11 +10,15 @@ import (
 	"github.com/boz/kcache/filter"
 )
 
+var (
+	ErrNotRunning = errors.New("Not running")
+)
+
 type Publisher interface {
-	Subscribe() Subscription
-	SubscribeWithFilter(filter.Filter) FilterSubscription
-	Clone() Controller
-	CloneWithFilter(filter.Filter) FilterController
+	Subscribe() (Subscription, error)
+	SubscribeWithFilter(filter.Filter) (FilterSubscription, error)
+	Clone() (Controller, error)
+	CloneWithFilter(filter.Filter) (FilterController, error)
 }
 
 type CacheController interface {
@@ -69,19 +74,19 @@ func (c *controller) Cache() CacheReader {
 	return c.cache
 }
 
-func (c *controller) Subscribe() Subscription {
+func (c *controller) Subscribe() (Subscription, error) {
 	return c.publisher.Subscribe()
 }
 
-func (c *controller) SubscribeWithFilter(f filter.Filter) FilterSubscription {
+func (c *controller) SubscribeWithFilter(f filter.Filter) (FilterSubscription, error) {
 	return c.publisher.SubscribeWithFilter(f)
 }
 
-func (c *controller) Clone() Controller {
+func (c *controller) Clone() (Controller, error) {
 	return c.publisher.Clone()
 }
 
-func (c *controller) CloneWithFilter(f filter.Filter) FilterController {
+func (c *controller) CloneWithFilter(f filter.Filter) (FilterController, error) {
 	return c.publisher.CloneWithFilter(f)
 }
 

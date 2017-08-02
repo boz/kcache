@@ -85,10 +85,14 @@ func (h handler) OnDelete(obj metav1.Object) {
 	}
 }
 
-func NewMonitor(publisher Publisher, handler Handler) Monitor {
-	m := &monitor{publisher.Subscribe(), handler}
+func NewMonitor(publisher Publisher, handler Handler) (Monitor, error) {
+	sub, err := publisher.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+	m := &monitor{sub, handler}
 	go m.run()
-	return m
+	return m, nil
 }
 
 type monitor struct {

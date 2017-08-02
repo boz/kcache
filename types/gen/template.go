@@ -43,10 +43,10 @@ type Subscription interface {
 }
 
 type Publisher interface {
-	Subscribe() Subscription
-	SubscribeWithFilter(filter.Filter) FilterSubscription
-	Clone() Controller
-	CloneWithFilter(filter.Filter) FilterController
+	Subscribe() (Subscription, error)
+	SubscribeWithFilter(filter.Filter) (FilterSubscription, error)
+	Clone() (Controller, error)
+	CloneWithFilter(filter.Filter) (FilterController, error)
 }
 
 type Controller interface {
@@ -256,20 +256,36 @@ func (c *controller) Cache() CacheReader {
 	return c.cache
 }
 
-func (c *controller) Subscribe() Subscription {
-	return newSubscription(c.parent.Subscribe())
+func (c *controller) Subscribe() (Subscription, error) {
+	parent, err := c.parent.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+	return newSubscription(parent), nil
 }
 
-func (c *controller) SubscribeWithFilter(f filter.Filter) FilterSubscription {
-	return newFilterSubscription(c.parent.SubscribeWithFilter(f))
+func (c *controller) SubscribeWithFilter(f filter.Filter) (FilterSubscription, error) {
+	parent, err := c.parent.SubscribeWithFilter(f)
+	if err != nil {
+		return nil, err
+	}
+	return newFilterSubscription(parent), nil
 }
 
-func (c *controller) Clone() Controller {
-	return newController(c.parent.Clone())
+func (c *controller) Clone() (Controller, error) {
+	parent, err := c.parent.Clone()
+	if err != nil {
+		return nil, err
+	}
+	return newController(parent), nil
 }
 
-func (c *controller) CloneWithFilter(f filter.Filter) FilterController {
-	return newFilterController(c.parent.CloneWithFilter(f))
+func (c *controller) CloneWithFilter(f filter.Filter) (FilterController, error) {
+	parent, err := c.parent.CloneWithFilter(f)
+	if err != nil {
+		return nil, err
+	}
+	return newFilterController(parent), nil
 }
 
 type filterController struct {
@@ -304,7 +320,7 @@ func (s *filterSubscription) Refilter(f filter.Filter) {
 	s.filterParent.Refilter(f)
 }
 
-func NewMonitor(publisher Publisher, handler Handler) kcache.Monitor {
+func NewMonitor(publisher Publisher, handler Handler) (kcache.Monitor, error) {
 	phandler := kcache.BuildHandler().
 		OnInitialize(func(objs []metav1.Object) {
 			aobjs, _ := adapter.adaptList(objs)
