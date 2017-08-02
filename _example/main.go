@@ -40,7 +40,10 @@ func main() {
 
 	defer controller.Close()
 
-	subscription := controller.Subscribe()
+	subscription, err := controller.Subscribe()
+	if err != nil {
+		log.ErrFatal(err, "subscribe")
+	}
 
 	select {
 	case <-subscription.Ready():
