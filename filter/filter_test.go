@@ -11,11 +11,6 @@ import (
 	"github.com/boz/kcache/nsname"
 )
 
-type filterTests []struct {
-	object metav1.Object
-	result bool
-}
-
 func TestNullFilter(t *testing.T) {
 	f := filter.Null()
 
