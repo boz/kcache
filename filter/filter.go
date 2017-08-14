@@ -97,19 +97,44 @@ func (f *labelsFilter) Equals(other Filter) bool {
 // if the object's namespace and name matches one of the given
 // NSNames.
 func NSName(ids ...nsname.NSName) ComparableFilter {
-	set := make(map[nsname.NSName]bool)
+	fullset := make(map[nsname.NSName]bool)
+	var partials []nsname.NSName
+
 	for _, id := range ids {
-		set[id] = true
+		if id.Namespace != "" && id.Name != "" {
+			fullset[id] = true
+		} else {
+			partials = append(partials, id)
+		}
 	}
-	return nsNameFilter(set)
+	return nsNameFilter{fullset, partials}
 }
 
-type nsNameFilter map[nsname.NSName]bool
+type nsNameFilter struct {
+	fullset  map[nsname.NSName]bool
+	partials []nsname.NSName
+}
 
 func (f nsNameFilter) Accept(obj metav1.Object) bool {
 	key := nsname.ForObject(obj)
-	_, ok := f[key]
-	return ok
+
+	if _, ok := f.fullset[key]; ok {
+		return true
+	}
+
+	for _, id := range f.partials {
+		switch {
+		case id.Namespace == "":
+			if id.Name == key.Name {
+				return true
+			}
+		case id.Name == "":
+			if id.Namespace == key.Namespace {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (f nsNameFilter) Equals(other Filter) bool {

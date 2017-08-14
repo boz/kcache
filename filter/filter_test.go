@@ -62,7 +62,7 @@ func TestLabels(t *testing.T) {
 	assert.False(t, fempty.Equals(f))
 }
 
-func TestNSName(t *testing.T) {
+func TestNSName_fullset(t *testing.T) {
 	n1 := nsname.New("a", "1")
 	n2 := nsname.New("a", "2")
 	n3 := nsname.New("b", "2")
@@ -86,6 +86,28 @@ func TestNSName(t *testing.T) {
 	assert.False(t, filter.NSName(n1).Equals(filter.NSName(n2)))
 	assert.False(t, filter.NSName(n1).Equals(nil))
 	assert.False(t, filter.NSName().Equals(nil))
+}
+
+func TestNSName_partials(t *testing.T) {
+	n1 := nsname.New("", "1")
+	n2 := nsname.New("b", "")
+
+	o1 := metav1.ObjectMeta{Namespace: "a", Name: "1"}
+	o2 := metav1.ObjectMeta{Namespace: "b", Name: "2"}
+	o3 := metav1.ObjectMeta{Namespace: "c", Name: "3"}
+
+	assert.True(t, filter.NSName(n1).Accept(&v1.Pod{ObjectMeta: o1}))
+	assert.False(t, filter.NSName(n1).Accept(&v1.Pod{ObjectMeta: o2}))
+	assert.False(t, filter.NSName(n1).Accept(&v1.Pod{ObjectMeta: o3}))
+
+	assert.True(t, filter.NSName(n1, n2).Accept(&v1.Service{ObjectMeta: o1}))
+	assert.True(t, filter.NSName(n1, n2).Accept(&v1.Service{ObjectMeta: o2}))
+	assert.False(t, filter.NSName(n1, n2).Accept(&v1.Service{ObjectMeta: o3}))
+
+	assert.True(t, filter.NSName(n1).Equals(filter.NSName(n1)))
+	assert.False(t, filter.NSName(n1).Equals(filter.NSName(n2)))
+	assert.True(t, filter.NSName(n1, n2).Equals(filter.NSName(n1, n2)))
+	assert.False(t, filter.NSName(n1, n2).Equals(filter.NSName(n2, n1)))
 }
 
 func TestFiltersEqual(t *testing.T) {
