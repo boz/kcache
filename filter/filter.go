@@ -50,49 +50,6 @@ func (allFilter) Equals(other Filter) bool {
 	return ok
 }
 
-// Labels() returns a filter which returns true if
-// the provided map is a subset of the object's labels.
-func Labels(match map[string]string) ComparableFilter {
-	return &labelsFilter{match}
-}
-
-type labelsFilter struct {
-	target map[string]string
-}
-
-func (f *labelsFilter) Accept(obj metav1.Object) bool {
-	if len(f.target) == 0 {
-		return true
-	}
-
-	current := obj.GetLabels()
-
-	for k, v := range f.target {
-		if val, ok := current[k]; !ok || val != v {
-			return false
-		}
-	}
-	return true
-}
-
-func (f *labelsFilter) Equals(other Filter) bool {
-	if other, ok := other.(*labelsFilter); ok {
-		if len(f.target) != len(other.target) {
-			return false
-		}
-		if len(f.target) == 0 {
-			return true
-		}
-		for k, v := range f.target {
-			if val, ok := other.target[k]; !ok || val != v {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
 // NSName() returns a filter whose Accept() returns true
 // if the object's namespace and name matches one of the given
 // NSNames.

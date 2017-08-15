@@ -61,8 +61,8 @@ func TestSelectorMatchFilter(t *testing.T) {
 
 func TestPodsFilter(t *testing.T) {
 
-	genpod := func(labels map[string]string) *v1.Pod {
-		return &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: labels}}
+	genpod := func(ns string, labels map[string]string) *v1.Pod {
+		return &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: labels, Namespace: ns}}
 	}
 
 	gensvc := func(ns, name string, labels map[string]string) *v1.Service {
@@ -72,19 +72,21 @@ func TestPodsFilter(t *testing.T) {
 		}
 	}
 
-	p1 := genpod(map[string]string{"a": "1", "b": "1", "c": "x"})
-	p2 := genpod(map[string]string{"a": "2", "b": "2", "c": "x"})
+	p1 := genpod("a", map[string]string{"a": "1", "b": "1", "c": "x"})
+	p2 := genpod("a", map[string]string{"a": "2", "b": "2", "c": "x"})
 
 	s1 := gensvc("a", "1", map[string]string{"a": "1"})
 	s2 := gensvc("a", "2", map[string]string{"b": "2"})
-	s3 := gensvc("c", "1", map[string]string{"c": "x"})
-	s4 := gensvc("d", "1", map[string]string{"a": "0"})
+	s3 := gensvc("a", "3", map[string]string{"c": "x"})
+	s4 := gensvc("a", "4", map[string]string{"a": "0"})
+	s5 := gensvc("b", "1", map[string]string{"a": "1"})
 
 	assert.False(t, service.PodsFilter().Accept(p1))
 	assert.True(t, service.PodsFilter(s1).Accept(p1))
 	assert.False(t, service.PodsFilter(s1).Accept(p2))
 	assert.True(t, service.PodsFilter(s2).Accept(p2))
 	assert.False(t, service.PodsFilter(s2).Accept(p1))
+	assert.False(t, service.PodsFilter(s5).Accept(p1))
 
 	assert.True(t, service.PodsFilter(s1, s2).Accept(p1))
 

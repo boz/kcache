@@ -6,6 +6,7 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 
 	"github.com/boz/kcache/filter"
+	"github.com/boz/kcache/nsname"
 )
 
 func PodsFilter(sources ...*v1beta1.ReplicaSet) filter.ComparableFilter {
@@ -25,15 +26,16 @@ func PodsFilter(sources ...*v1beta1.ReplicaSet) filter.ComparableFilter {
 
 	for _, svc := range srcs {
 
-		// TODO: match expressions
-		var labels map[string]string
-		if svc.Spec.Selector != nil {
-			labels = svc.Spec.Selector.MatchLabels
+		var sfilter filter.Filter
+		if sel := svc.Spec.Selector; sel != nil {
+			sfilter = filter.LabelSelector(sel)
 		} else {
-			labels = svc.Spec.Template.Labels
+			sfilter = filter.Labels(svc.Spec.Template.Labels)
 		}
 
-		filters = append(filters, filter.Labels(labels))
+		nsfilter := filter.NSName(nsname.New(svc.GetNamespace(), ""))
+
+		filters = append(filters, filter.And(nsfilter, sfilter))
 	}
 
 	return filter.Or(filters...)

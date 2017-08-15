@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/boz/kcache/filter"
+	"github.com/boz/kcache/nsname"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -61,10 +62,14 @@ func PodsFilter(services ...*v1.Service) filter.ComparableFilter {
 		return svcs[i].Name < svcs[j].Name
 	})
 
-	filters := make([]filter.Filter, 0, len(svcs))
+	var filters []filter.Filter
 
 	for _, svc := range svcs {
-		filters = append(filters, filter.Labels(svc.Spec.Selector))
+		if len(svc.Spec.Selector) > 0 {
+			sfilter := filter.Labels(svc.Spec.Selector)
+			nsfilter := filter.NSName(nsname.New(svc.GetNamespace(), ""))
+			filters = append(filters, filter.And(nsfilter, sfilter))
+		}
 	}
 
 	return filter.Or(filters...)

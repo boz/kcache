@@ -35,33 +35,6 @@ func TestAllFilter(t *testing.T) {
 	assert.False(t, f.Equals(filter.Null()))
 }
 
-func TestLabels(t *testing.T) {
-	target := map[string]string{"a": "1"}
-	tsuper := map[string]string{"a": "1", "b": "2"}
-	tmiss := map[string]string{"a": "2"}
-
-	f := filter.Labels(target)
-	fempty := filter.Labels(nil)
-
-	gen := func(labels map[string]string) metav1.Object {
-		return &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: labels}}
-	}
-
-	assert.True(t, f.Accept(gen(target)))
-	assert.True(t, f.Accept(gen(tsuper)))
-	assert.False(t, f.Accept(gen(tmiss)))
-
-	assert.True(t, fempty.Accept(gen(target)))
-	assert.True(t, fempty.Accept(gen(tsuper)))
-	assert.True(t, fempty.Accept(gen(tmiss)))
-
-	assert.True(t, f.Equals(f))
-	assert.False(t, f.Equals(fempty))
-
-	assert.True(t, fempty.Equals(fempty))
-	assert.False(t, fempty.Equals(f))
-}
-
 func TestNSName_fullset(t *testing.T) {
 	n1 := nsname.New("a", "1")
 	n2 := nsname.New("a", "2")
