@@ -17,7 +17,7 @@ import (
 
 	"github.com/boz/kcache/filter"
 
-	"k8s.io/api/apps/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/client-go/kubernetes"

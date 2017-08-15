@@ -5,7 +5,7 @@ import (
 
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/nsname"
-	"k8s.io/api/apps/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 )
 
 func PodsFilter(sources ...*v1beta1.Deployment) filter.ComparableFilter {

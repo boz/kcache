@@ -5,6 +5,8 @@ import (
 
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"
+	"github.com/boz/kcache/types/daemonset"
+	"github.com/boz/kcache/types/deployment"
 	"github.com/boz/kcache/types/pod"
 	"github.com/boz/kcache/types/replicaset"
 	"github.com/boz/kcache/types/replicationcontroller"
@@ -120,6 +122,84 @@ func RSPods(ctx context.Context, srcbase replicaset.Controller, dstbase pod.Cont
 	if err != nil {
 		dst.Close()
 		return nil, log.Err(err, "join(replicaset,pods): monitor")
+	}
+
+	go func() {
+		<-dst.Done()
+		monitor.Close()
+	}()
+
+	return dst, nil
+}
+
+func DeploymentPods(ctx context.Context, srcbase deployment.Controller, dstbase pod.Controller) (pod.Controller, error) {
+
+	log := logutil.FromContextOrDefault(ctx)
+
+	dst, err := dstbase.CloneWithFilter(filter.All())
+	if err != nil {
+		return nil, err
+	}
+
+	update := func(_ *v1beta1.Deployment) {
+		objs, err := srcbase.Cache().List()
+		if err == nil {
+			log.Err(err, "join(deployment,pods): cache list")
+			return
+		}
+		dst.Refilter(deployment.PodsFilter(objs...))
+	}
+
+	handler := deployment.BuildHandler().
+		OnInitialize(func(objs []*v1beta1.Deployment) { dst.Refilter(deployment.PodsFilter(objs...)) }).
+		OnCreate(update).
+		OnUpdate(update).
+		OnDelete(update).
+		Create()
+
+	monitor, err := deployment.NewMonitor(srcbase, handler)
+	if err != nil {
+		dst.Close()
+		return nil, log.Err(err, "join(deployment,pods): monitor")
+	}
+
+	go func() {
+		<-dst.Done()
+		monitor.Close()
+	}()
+
+	return dst, nil
+}
+
+func DaemonSetPods(ctx context.Context, srcbase daemonset.Controller, dstbase pod.Controller) (pod.Controller, error) {
+
+	log := logutil.FromContextOrDefault(ctx)
+
+	dst, err := dstbase.CloneWithFilter(filter.All())
+	if err != nil {
+		return nil, err
+	}
+
+	update := func(_ *v1beta1.DaemonSet) {
+		objs, err := srcbase.Cache().List()
+		if err == nil {
+			log.Err(err, "join(daemonset,pods): cache list")
+			return
+		}
+		dst.Refilter(daemonset.PodsFilter(objs...))
+	}
+
+	handler := daemonset.BuildHandler().
+		OnInitialize(func(objs []*v1beta1.DaemonSet) { dst.Refilter(daemonset.PodsFilter(objs...)) }).
+		OnCreate(update).
+		OnUpdate(update).
+		OnDelete(update).
+		Create()
+
+	monitor, err := daemonset.NewMonitor(srcbase, handler)
+	if err != nil {
+		dst.Close()
+		return nil, log.Err(err, "join(daemonset,pods): monitor")
 	}
 
 	go func() {
