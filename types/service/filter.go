@@ -61,7 +61,7 @@ func PodsFilter(services ...*v1.Service) filter.ComparableFilter {
 		return svcs[i].Name < svcs[j].Name
 	})
 
-	filters := make([]filter.Filter, 0, len(services))
+	filters := make([]filter.Filter, 0, len(svcs))
 
 	for _, svc := range svcs {
 		filters = append(filters, filter.Labels(svc.Spec.Selector))
