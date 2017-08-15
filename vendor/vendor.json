@@ -21,16 +21,16 @@
 			"revisionTime": "2017-05-02T06:09:24Z"
 		},
 		{
-			"checksumSHA1": "ZDfKtVZT6HowxJavEvaQMVrE+aM=",
+			"checksumSHA1": "usaZ1e18JqJu5wqLcFTmVgUschY=",
 			"path": "github.com/boz/go-logutil",
-			"revision": "f8a71b2c319849636cebe9322411f078b6b35262",
-			"revisionTime": "2017-05-05T05:50:23Z"
+			"revision": "9d21a9e4757dbc497f947fe5253f9570c34562fa",
+			"revisionTime": "2017-08-14T04:00:38Z"
 		},
 		{
 			"checksumSHA1": "RbrHd5G9zza4sHNZ77AMjZoOCSQ=",
 			"path": "github.com/boz/go-logutil/logrus",
-			"revision": "f8a71b2c319849636cebe9322411f078b6b35262",
-			"revisionTime": "2017-05-05T05:50:23Z"
+			"revision": "9d21a9e4757dbc497f947fe5253f9570c34562fa",
+			"revisionTime": "2017-08-14T04:00:38Z"
 		},
 		{
 			"checksumSHA1": "Yvd8z26zSgktRPGaYuFRdI9C1Jo=",
