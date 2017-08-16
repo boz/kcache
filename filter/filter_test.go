@@ -35,6 +35,17 @@ func TestAllFilter(t *testing.T) {
 	assert.False(t, f.Equals(filter.Null()))
 }
 
+func TestNotFilter(t *testing.T) {
+	f1 := filter.Not(filter.All())
+	f2 := filter.Not(filter.Null())
+
+	assert.True(t, f1.Accept(&v1.Pod{}))
+	assert.False(t, f2.Accept(&v1.Pod{}))
+
+	assert.True(t, f1.Equals(f1))
+	assert.False(t, f1.Equals(f2))
+}
+
 func TestNSName_fullset(t *testing.T) {
 	n1 := nsname.New("a", "1")
 	n2 := nsname.New("a", "2")

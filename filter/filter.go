@@ -50,6 +50,27 @@ func (allFilter) Equals(other Filter) bool {
 	return ok
 }
 
+func Not(child Filter) ComparableFilter {
+	return &notFilter{child}
+}
+
+type notFilter struct {
+	child Filter
+}
+
+func (f *notFilter) Accept(obj metav1.Object) bool {
+	return !f.child.Accept(obj)
+}
+
+func (f *notFilter) Equals(other Filter) bool {
+	if other, ok := other.(*notFilter); ok {
+		if child, ok := f.child.(ComparableFilter); ok {
+			return child.Equals(other.child)
+		}
+	}
+	return false
+}
+
 // NSName() returns a filter whose Accept() returns true
 // if the object's namespace and name matches one of the given
 // NSNames.
