@@ -6,8 +6,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func KubeClient() (kubernetes.Interface, *rest.Config, error) {
-	config, err := KubeConfig()
+func KubeClient(overrides *clientcmd.ConfigOverrides) (kubernetes.Interface, *rest.Config, error) {
+	config, err := KubeConfig(overrides)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -18,13 +18,18 @@ func KubeClient() (kubernetes.Interface, *rest.Config, error) {
 	return clientset, config, nil
 }
 
-func KubeConfig() (*rest.Config, error) {
+func KubeConfig(overrides *clientcmd.ConfigOverrides) (*rest.Config, error) {
 	config, err := rest.InClusterConfig()
 	if err == nil {
 		return config, err
 	}
+
+	if overrides == nil {
+		overrides = &clientcmd.ConfigOverrides{}
+	}
+
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{},
+		overrides,
 	).ClientConfig()
 }
