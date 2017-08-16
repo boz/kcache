@@ -26,7 +26,7 @@ func ServicePods(ctx context.Context, srcbase service.Controller, dstbase pod.Co
 
 	update := func(_ *v1.Service) {
 		objs, err := srcbase.Cache().List()
-		if err == nil {
+		if err != nil {
 			log.Err(err, "join(service,pods): cache list")
 			return
 		}
@@ -65,7 +65,7 @@ func RCPods(ctx context.Context, srcbase replicationcontroller.Controller, dstba
 
 	update := func(_ *v1.ReplicationController) {
 		objs, err := srcbase.Cache().List()
-		if err == nil {
+		if err != nil {
 			log.Err(err, "join(replicationcontroller,pods): cache list")
 			return
 		}
@@ -104,7 +104,7 @@ func RSPods(ctx context.Context, srcbase replicaset.Controller, dstbase pod.Cont
 
 	update := func(_ *v1beta1.ReplicaSet) {
 		objs, err := srcbase.Cache().List()
-		if err == nil {
+		if err != nil {
 			log.Err(err, "join(replicaset,pods): cache list")
 			return
 		}
@@ -143,7 +143,7 @@ func DeploymentPods(ctx context.Context, srcbase deployment.Controller, dstbase 
 
 	update := func(_ *v1beta1.Deployment) {
 		objs, err := srcbase.Cache().List()
-		if err == nil {
+		if err != nil {
 			log.Err(err, "join(deployment,pods): cache list")
 			return
 		}
@@ -182,7 +182,7 @@ func DaemonSetPods(ctx context.Context, srcbase daemonset.Controller, dstbase po
 
 	update := func(_ *v1beta1.DaemonSet) {
 		objs, err := srcbase.Cache().List()
-		if err == nil {
+		if err != nil {
 			log.Err(err, "join(daemonset,pods): cache list")
 			return
 		}
