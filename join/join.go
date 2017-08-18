@@ -7,6 +7,7 @@ import (
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/types/daemonset"
 	"github.com/boz/kcache/types/deployment"
+	"github.com/boz/kcache/types/ingress"
 	"github.com/boz/kcache/types/pod"
 	"github.com/boz/kcache/types/replicaset"
 	"github.com/boz/kcache/types/replicationcontroller"
@@ -208,4 +209,57 @@ func DaemonSetPods(ctx context.Context, srcbase daemonset.Controller, dstbase po
 	}()
 
 	return dst, nil
+}
+
+func IngressServices(ctx context.Context, srcbase ingress.Controller, dstbase service.Controller) (service.Controller, error) {
+	log := logutil.FromContextOrDefault(ctx)
+
+	dst, err := dstbase.CloneWithFilter(filter.All())
+	if err != nil {
+		return nil, err
+	}
+
+	update := func(_ *v1beta1.Ingress) {
+		objs, err := srcbase.Cache().List()
+		if err != nil {
+			log.Err(err, "join(ingress,pods): cache list")
+			return
+		}
+		dst.Refilter(ingress.ServicesFilter(objs...))
+	}
+
+	handler := ingress.BuildHandler().
+		OnInitialize(func(objs []*v1beta1.Ingress) { dst.Refilter(ingress.ServicesFilter(objs...)) }).
+		OnCreate(update).
+		OnUpdate(update).
+		OnDelete(update).
+		Create()
+
+	monitor, err := ingress.NewMonitor(srcbase, handler)
+	if err != nil {
+		dst.Close()
+		return nil, log.Err(err, "join(ingress,pods): monitor")
+	}
+
+	go func() {
+		<-dst.Done()
+		monitor.Close()
+	}()
+
+	return dst, nil
+
+}
+
+func IngressPods(ctx context.Context, srcbase ingress.Controller, svcbase service.Controller, dstbase pod.Controller) (pod.Controller, error) {
+	svcs, err := IngressServices(ctx, srcbase, svcbase)
+	if err != nil {
+		return nil, err
+	}
+
+	pods, err := ServicePods(ctx, svcs, dstbase)
+	if err != nil {
+		svcs.Close()
+		return nil, err
+	}
+	return pods, nil
 }
