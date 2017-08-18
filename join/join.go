@@ -4,7 +4,6 @@ import (
 	"context"
 
 	logutil "github.com/boz/go-logutil"
-	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/types/daemonset"
 	"github.com/boz/kcache/types/deployment"
 	"github.com/boz/kcache/types/ingress"
@@ -12,6 +11,7 @@ import (
 	"github.com/boz/kcache/types/replicaset"
 	"github.com/boz/kcache/types/replicationcontroller"
 	"github.com/boz/kcache/types/service"
+	apps_v1beta1 "k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 )
@@ -20,7 +20,7 @@ func ServicePods(ctx context.Context, srcbase service.Controller, dstbase pod.Co
 
 	log := logutil.FromContextOrDefault(ctx)
 
-	dst, err := dstbase.CloneWithFilter(filter.All())
+	dst, err := dstbase.CloneForFilter()
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func RCPods(ctx context.Context, srcbase replicationcontroller.Controller, dstba
 
 	log := logutil.FromContextOrDefault(ctx)
 
-	dst, err := dstbase.CloneWithFilter(filter.All())
+	dst, err := dstbase.CloneForFilter()
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func RSPods(ctx context.Context, srcbase replicaset.Controller, dstbase pod.Cont
 
 	log := logutil.FromContextOrDefault(ctx)
 
-	dst, err := dstbase.CloneWithFilter(filter.All())
+	dst, err := dstbase.CloneForFilter()
 	if err != nil {
 		return nil, err
 	}
@@ -137,12 +137,12 @@ func DeploymentPods(ctx context.Context, srcbase deployment.Controller, dstbase 
 
 	log := logutil.FromContextOrDefault(ctx)
 
-	dst, err := dstbase.CloneWithFilter(filter.All())
+	dst, err := dstbase.CloneForFilter()
 	if err != nil {
 		return nil, err
 	}
 
-	update := func(_ *v1beta1.Deployment) {
+	update := func(_ *apps_v1beta1.Deployment) {
 		objs, err := srcbase.Cache().List()
 		if err != nil {
 			log.Err(err, "join(deployment,pods): cache list")
@@ -152,7 +152,7 @@ func DeploymentPods(ctx context.Context, srcbase deployment.Controller, dstbase 
 	}
 
 	handler := deployment.BuildHandler().
-		OnInitialize(func(objs []*v1beta1.Deployment) { dst.Refilter(deployment.PodsFilter(objs...)) }).
+		OnInitialize(func(objs []*apps_v1beta1.Deployment) { dst.Refilter(deployment.PodsFilter(objs...)) }).
 		OnCreate(update).
 		OnUpdate(update).
 		OnDelete(update).
@@ -176,7 +176,7 @@ func DaemonSetPods(ctx context.Context, srcbase daemonset.Controller, dstbase po
 
 	log := logutil.FromContextOrDefault(ctx)
 
-	dst, err := dstbase.CloneWithFilter(filter.All())
+	dst, err := dstbase.CloneForFilter()
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func DaemonSetPods(ctx context.Context, srcbase daemonset.Controller, dstbase po
 func IngressServices(ctx context.Context, srcbase ingress.Controller, dstbase service.Controller) (service.Controller, error) {
 	log := logutil.FromContextOrDefault(ctx)
 
-	dst, err := dstbase.CloneWithFilter(filter.All())
+	dst, err := dstbase.CloneForFilter()
 	if err != nil {
 		return nil, err
 	}

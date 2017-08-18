@@ -17,7 +17,7 @@ import (
 
 	"github.com/boz/kcache/filter"
 
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/apps/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/client-go/kubernetes"
@@ -53,8 +53,10 @@ type Subscription interface {
 type Publisher interface {
 	Subscribe() (Subscription, error)
 	SubscribeWithFilter(filter.Filter) (FilterSubscription, error)
+	SubscribeForFilter() (FilterSubscription, error)
 	Clone() (Controller, error)
 	CloneWithFilter(filter.Filter) (FilterController, error)
+	CloneForFilter() (FilterController, error)
 }
 
 type Controller interface {
@@ -280,6 +282,14 @@ func (c *controller) SubscribeWithFilter(f filter.Filter) (FilterSubscription, e
 	return newFilterSubscription(parent), nil
 }
 
+func (c *controller) SubscribeForFilter() (FilterSubscription, error) {
+	parent, err := c.parent.SubscribeForFilter()
+	if err != nil {
+		return nil, err
+	}
+	return newFilterSubscription(parent), nil
+}
+
 func (c *controller) Clone() (Controller, error) {
 	parent, err := c.parent.Clone()
 	if err != nil {
@@ -290,6 +300,14 @@ func (c *controller) Clone() (Controller, error) {
 
 func (c *controller) CloneWithFilter(f filter.Filter) (FilterController, error) {
 	parent, err := c.parent.CloneWithFilter(f)
+	if err != nil {
+		return nil, err
+	}
+	return newFilterController(parent), nil
+}
+
+func (c *controller) CloneForFilter() (FilterController, error) {
+	parent, err := c.parent.CloneForFilter()
 	if err != nil {
 		return nil, err
 	}

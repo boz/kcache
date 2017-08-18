@@ -297,6 +297,7 @@ func (c *_cache) processList(list []metav1.Object) ([]Event, error) {
 	set := make(map[cacheKey]cacheEntry)
 
 	for _, obj := range list {
+
 		key, err := c.createKey(obj)
 		if err != nil {
 			c.log.ErrWarn(err, "createKey(%T)", obj)

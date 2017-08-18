@@ -17,8 +17,10 @@ var (
 type Publisher interface {
 	Subscribe() (Subscription, error)
 	SubscribeWithFilter(filter.Filter) (FilterSubscription, error)
+	SubscribeForFilter() (FilterSubscription, error)
 	Clone() (Controller, error)
 	CloneWithFilter(filter.Filter) (FilterController, error)
+	CloneForFilter() (FilterController, error)
 }
 
 type CacheController interface {
@@ -82,12 +84,20 @@ func (c *controller) SubscribeWithFilter(f filter.Filter) (FilterSubscription, e
 	return c.publisher.SubscribeWithFilter(f)
 }
 
+func (c *controller) SubscribeForFilter() (FilterSubscription, error) {
+	return c.publisher.SubscribeForFilter()
+}
+
 func (c *controller) Clone() (Controller, error) {
 	return c.publisher.Clone()
 }
 
 func (c *controller) CloneWithFilter(f filter.Filter) (FilterController, error) {
 	return c.publisher.CloneWithFilter(f)
+}
+
+func (c *controller) CloneForFilter() (FilterController, error) {
+	return c.publisher.CloneForFilter()
 }
 
 func (c *controller) run() {
@@ -126,9 +136,9 @@ func (c *controller) run() {
 			if !initialized {
 				initialized = true
 				close(c.readych)
+			} else {
+				c.distributeEvents(events)
 			}
-
-			c.distributeEvents(events)
 
 			c.watcher.reset(version)
 

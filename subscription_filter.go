@@ -15,6 +15,7 @@ type FilterSubscription interface {
 type filterSubscription struct {
 	parent Subscription
 
+	deferReady bool
 	refilterch chan filter.Filter
 
 	outch   chan Event
@@ -27,7 +28,7 @@ type filterSubscription struct {
 	log logutil.Log
 }
 
-func newFilterSubscription(log logutil.Log, parent Subscription, f filter.Filter) FilterSubscription {
+func newFilterSubscription(log logutil.Log, parent Subscription, f filter.Filter, deferReady bool) FilterSubscription {
 
 	ctx := context.Background()
 
@@ -39,6 +40,7 @@ func newFilterSubscription(log logutil.Log, parent Subscription, f filter.Filter
 		outch:      make(chan Event, EventBufsiz),
 		readych:    make(chan struct{}),
 		stopch:     stopch,
+		deferReady: deferReady,
 		filter:     f,
 		cache:      newCache(ctx, log, stopch, f),
 		log:        log,
@@ -78,6 +80,9 @@ func (s *filterSubscription) run() {
 
 	preadych := s.parent.Ready()
 
+	pending := false
+	ready := false
+
 	for {
 		select {
 		case <-preadych:
@@ -87,18 +92,45 @@ func (s *filterSubscription) run() {
 			if err != nil {
 				s.log.Err(err, "parent.Cache().List()")
 				s.parent.Close()
-			} else {
-				s.cache.sync(list)
+				continue
+			}
+
+			s.cache.sync(list)
+
+			if pending || !s.deferReady {
 				close(s.readych)
+				ready = true
 			}
 
 			preadych = nil
 
 		case f := <-s.refilterch:
 
-			if filter.FiltersEqual(s.filter, f) {
+			isNew := !filter.FiltersEqual(s.filter, f)
+
+			switch {
+
+			case preadych != nil && !isNew:
+				pending = true
 				continue
+
+			case preadych != nil && isNew:
+				s.cache.refilter(nil, f)
+				s.filter = f
+				pending = true
+				continue
+
+			case ready && !isNew:
+				continue
+
+			case !ready && !isNew:
+				close(s.readych)
+				ready = true
+				continue
+
 			}
+
+			// pready == nil && isNew
 
 			list, err := s.parent.Cache().List()
 			if err != nil {
@@ -109,14 +141,30 @@ func (s *filterSubscription) run() {
 
 			events := s.cache.refilter(list, f)
 			s.filter = f
+
+			if !ready {
+				close(s.readych)
+				ready = true
+				continue
+			}
+
 			s.distributeEvents(events)
 
 		case evt, ok := <-s.parent.Events():
-			if !ok {
+
+			switch {
+			case !ok:
 				return
+			case preadych != nil:
+				continue
 			}
 
-			s.distributeEvents(s.cache.update(evt))
+			events := s.cache.update(evt)
+
+			if ready {
+				s.distributeEvents(events)
+			}
+
 		}
 	}
 }

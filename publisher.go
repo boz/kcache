@@ -68,7 +68,15 @@ func (s *publisher) SubscribeWithFilter(f filter.Filter) (FilterSubscription, er
 	if err != nil {
 		return nil, err
 	}
-	return newFilterSubscription(s.log, sub, f), nil
+	return newFilterSubscription(s.log, sub, f, false), nil
+}
+
+func (s *publisher) SubscribeForFilter() (FilterSubscription, error) {
+	sub, err := s.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+	return newFilterSubscription(s.log, sub, filter.All(), true), nil
 }
 
 func (s *publisher) Clone() (Controller, error) {
@@ -81,6 +89,14 @@ func (s *publisher) Clone() (Controller, error) {
 
 func (s *publisher) CloneWithFilter(f filter.Filter) (FilterController, error) {
 	sub, err := s.SubscribeWithFilter(f)
+	if err != nil {
+		return nil, err
+	}
+	return newFilterPublisher(s.log, sub), nil
+}
+
+func (s *publisher) CloneForFilter() (FilterController, error) {
+	sub, err := s.SubscribeForFilter()
 	if err != nil {
 		return nil, err
 	}
@@ -161,12 +177,20 @@ func (c *filterController) SubscribeWithFilter(f filter.Filter) (FilterSubscript
 	return c.parent.SubscribeWithFilter(f)
 }
 
+func (c *filterController) SubscribeForFilter() (FilterSubscription, error) {
+	return c.parent.SubscribeForFilter()
+}
+
 func (c *filterController) Clone() (Controller, error) {
 	return c.parent.Clone()
 }
 
 func (c *filterController) CloneWithFilter(f filter.Filter) (FilterController, error) {
 	return c.parent.CloneWithFilter(f)
+}
+
+func (c *filterController) CloneForFilter() (FilterController, error) {
+	return c.parent.CloneForFilter()
 }
 
 func (c *filterController) Done() <-chan struct{} {
