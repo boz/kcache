@@ -81,10 +81,12 @@ func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, filt
 		getch:      make(chan getRequest),
 		refilterch: make(chan refilterRequest),
 		listch:     make(chan chan []metav1.Object),
+		items:      make(map[cacheKey]cacheEntry),
 		log:        log,
 		lc:         lifecycle.New(),
 		ctx:        ctx,
 	}
+
 	go c.lc.WatchContext(ctx)
 	go c.lc.WatchChannel(stopch)
 	go c.run()
@@ -185,10 +187,6 @@ func (c *_cache) run() {
 }
 
 func (c *_cache) doList() []metav1.Object {
-	if c.items == nil {
-		return nil
-	}
-
 	result := make([]metav1.Object, 0, len(c.items))
 	for _, obj := range c.items {
 		result = append(result, obj.object)
@@ -197,18 +195,55 @@ func (c *_cache) doList() []metav1.Object {
 }
 
 func (c *_cache) doSync(list []metav1.Object) []Event {
-	var result []Event
 
-	if c.items == nil {
-		c.doInitialSync(list)
-		return result
+	var events []Event
+	set := make(map[cacheKey]cacheEntry)
+
+	for _, obj := range list {
+
+		key, err := c.createKey(obj)
+		if err != nil {
+			c.log.ErrWarn(err, "createKey(%T)", obj)
+			continue
+		}
+
+		entry, err := c.createEntry(obj)
+		if err != nil {
+			c.log.ErrWarn(err, "createEntry(%T)", obj)
+			continue
+		}
+
+		current, found := c.items[key]
+
+		accept := c.filter.Accept(entry.object)
+
+		switch {
+		case accept && !found:
+			events = append(events, NewEvent(EventTypeCreate, entry.object))
+			c.items[key] = entry
+		case accept && current.version < entry.version:
+			events = append(events, NewEvent(EventTypeUpdate, entry.object))
+			c.items[key] = entry
+		case current.version >= entry.version:
+			if !c.filter.Accept(current.object) {
+				continue
+			}
+		default:
+			// don't add to working new working set of objects
+			continue
+		}
+
+		set[key] = entry
 	}
 
-	result, err := c.processList(list)
-	if err != nil {
-		c.log.ErrWarn(err, "cache.processList()")
+	for k, current := range c.items {
+		if _, ok := set[k]; !ok {
+			events = append(events, NewEvent(EventTypeDelete, current.object))
+			delete(c.items, k)
+		}
 	}
-	return result
+
+	return events
 }
 
 func (c *_cache) doRefilter(list []metav1.Object, filter filter.Filter) []Event {
@@ -265,82 +300,6 @@ func (c *_cache) doUpdate(evt Event) []Event {
 	}
 
 	return events
-}
-
-func (c *_cache) doInitialSync(list []metav1.Object) {
-	c.items = make(map[cacheKey]cacheEntry, len(list))
-
-	for _, obj := range list {
-		key, err := c.createKey(obj)
-		if err != nil {
-			c.log.ErrWarn(err, "createKey(%T)", obj)
-			continue
-		}
-
-		entry, err := c.createEntry(obj)
-		if err != nil {
-			c.log.ErrWarn(err, "createEntry(%T)", obj)
-			continue
-		}
-
-		if !c.filter.Accept(entry.object) {
-			continue
-		}
-
-		c.items[key] = entry
-	}
-}
-
-func (c *_cache) processList(list []metav1.Object) ([]Event, error) {
-
-	var events []Event
-	set := make(map[cacheKey]cacheEntry)
-
-	for _, obj := range list {
-
-		key, err := c.createKey(obj)
-		if err != nil {
-			c.log.ErrWarn(err, "createKey(%T)", obj)
-			continue
-		}
-
-		entry, err := c.createEntry(obj)
-		if err != nil {
-			c.log.ErrWarn(err, "createEntry(%T)", obj)
-			continue
-		}
-
-		current, found := c.items[key]
-
-		accept := c.filter.Accept(entry.object)
-
-		switch {
-		case accept && !found:
-			events = append(events, NewEvent(EventTypeCreate, entry.object))
-			c.items[key] = entry
-		case accept && current.version < entry.version:
-			events = append(events, NewEvent(EventTypeUpdate, entry.object))
-			c.items[key] = entry
-		case current.version >= entry.version:
-			if !c.filter.Accept(current.object) {
-				continue
-			}
-		default:
-			// don't add to working new working set of objects
-			continue
-		}
-
-		set[key] = entry
-	}
-
-	for k, current := range c.items {
-		if _, ok := set[k]; !ok {
-			events = append(events, NewEvent(EventTypeDelete, current.object))
-			delete(c.items, k)
-		}
-	}
-
-	return events, nil
 }
 
 func (c *_cache) createKey(obj metav1.Object) (cacheKey, error) {

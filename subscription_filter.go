@@ -87,6 +87,12 @@ func (s *filterSubscription) run() {
 		select {
 		case <-preadych:
 
+			preadych = nil
+
+			if s.deferReady && !pending {
+				continue
+			}
+
 			list, err := s.parent.Cache().List()
 
 			if err != nil {
@@ -97,12 +103,8 @@ func (s *filterSubscription) run() {
 
 			s.cache.sync(list)
 
-			if pending || !s.deferReady {
-				close(s.readych)
-				ready = true
-			}
-
-			preadych = nil
+			close(s.readych)
+			ready = true
 
 		case f := <-s.refilterch:
 
@@ -155,15 +157,13 @@ func (s *filterSubscription) run() {
 			switch {
 			case !ok:
 				return
-			case preadych != nil:
+			case !ready:
 				continue
 			}
 
 			events := s.cache.update(evt)
 
-			if ready {
-				s.distributeEvents(events)
-			}
+			s.distributeEvents(events)
 
 		}
 	}

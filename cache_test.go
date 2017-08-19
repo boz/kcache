@@ -11,14 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCache_Sync_initial(t *testing.T) {
 	initial := []metav1.Object{
-		genPod("default", "pod-1", "1"),
-		genPod("default", "pod-2", "2"),
+		testGenPod("default", "pod-1", "1"),
+		testGenPod("default", "pod-2", "2"),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -36,7 +35,7 @@ func TestCache_Sync_initial(t *testing.T) {
 	events := cache.sync(initial)
 
 	// first sync returns zero events
-	require.Empty(t, events)
+	require.NotEmpty(t, events)
 
 	list, err := cache.List()
 	require.NoError(t, err)
@@ -59,13 +58,13 @@ func TestCache_Sync_initial(t *testing.T) {
 
 func TestCache_Sync_secondary(t *testing.T) {
 	initial := []metav1.Object{
-		genPod("default", "pod-1", "1"),
-		genPod("default", "pod-2", "2"),
+		testGenPod("default", "pod-1", "1"),
+		testGenPod("default", "pod-2", "2"),
 	}
 
 	secondary := []metav1.Object{
-		genPod("default", "pod-1", "3"),
-		genPod("default", "pod-3", "4"),
+		testGenPod("default", "pod-1", "3"),
+		testGenPod("default", "pod-3", "4"),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -80,7 +79,7 @@ func TestCache_Sync_secondary(t *testing.T) {
 	cache := newCache(ctx, log, stopch, filter)
 
 	// first sync returns zero events
-	assert.Empty(t, cache.sync(initial))
+	assert.NotEmpty(t, cache.sync(initial))
 
 	events := cache.sync(secondary)
 
@@ -131,8 +130,8 @@ func TestCache_Sync_secondary(t *testing.T) {
 
 func TestCache_update(t *testing.T) {
 	initial := []metav1.Object{
-		genPod("default", "pod-1", "1"),
-		genPod("default", "pod-2", "2"),
+		testGenPod("default", "pod-1", "1"),
+		testGenPod("default", "pod-2", "2"),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -147,24 +146,24 @@ func TestCache_update(t *testing.T) {
 	cache := newCache(ctx, log, stopch, filter)
 
 	// first sync returns zero events
-	assert.Empty(t, cache.sync(initial))
+	assert.NotEmpty(t, cache.sync(initial))
 
 	{
-		events := cache.update(genEvent(EventTypeUpdate, "default", "pod-1", "3"))
+		events := cache.update(testGenEvent(EventTypeUpdate, "default", "pod-1", "3"))
 		require.Len(t, events, 1)
 		assert.Equal(t, EventTypeUpdate, events[0].Type())
 		assert.Equal(t, "pod-1", events[0].Resource().GetName())
 	}
 
 	{
-		events := cache.update(genEvent(EventTypeDelete, "default", "pod-2", "4"))
+		events := cache.update(testGenEvent(EventTypeDelete, "default", "pod-2", "4"))
 		require.Len(t, events, 1)
 		assert.Equal(t, EventTypeDelete, events[0].Type())
 		assert.Equal(t, "pod-2", events[0].Resource().GetName())
 	}
 
 	{
-		events := cache.update(genEvent(EventTypeCreate, "default", "pod-3", "5"))
+		events := cache.update(testGenEvent(EventTypeCreate, "default", "pod-3", "5"))
 		require.Len(t, events, 1)
 		assert.Equal(t, EventTypeCreate, events[0].Type())
 		assert.Equal(t, "pod-3", events[0].Resource().GetName())
@@ -191,8 +190,8 @@ func TestCache_update(t *testing.T) {
 
 func TestCache_refilter(t *testing.T) {
 	initial := []metav1.Object{
-		genPod("default", "pod-1", "1"),
-		genPod("default", "pod-2", "2"),
+		testGenPod("default", "pod-1", "1"),
+		testGenPod("default", "pod-2", "2"),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -206,7 +205,7 @@ func TestCache_refilter(t *testing.T) {
 	cache := newCache(ctx, log, stopch, filter.Null())
 
 	// first sync returns zero events
-	assert.Empty(t, cache.sync(initial))
+	assert.NotEmpty(t, cache.sync(initial))
 
 	filter := filter.NSName(nsname.New("default", "pod-1"))
 
@@ -222,25 +221,11 @@ func TestCache_refilter(t *testing.T) {
 	obj := list[0]
 	require.Equal(t, "pod-1", obj.GetName())
 
-	assert.Empty(t, cache.update(NewEvent(EventTypeDelete, genPod("default", "pod-2", "3"))))
-	assert.Empty(t, cache.update(NewEvent(EventTypeUpdate, genPod("default", "pod-2", "3"))))
-	assert.Empty(t, cache.update(NewEvent(EventTypeCreate, genPod("default", "pod-2", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeDelete, testGenPod("default", "pod-2", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeUpdate, testGenPod("default", "pod-2", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeCreate, testGenPod("default", "pod-2", "3"))))
 
-	assert.Empty(t, cache.update(NewEvent(EventTypeDelete, genPod("default", "pod-3", "3"))))
-	assert.Empty(t, cache.update(NewEvent(EventTypeUpdate, genPod("default", "pod-3", "3"))))
-	assert.Empty(t, cache.update(NewEvent(EventTypeCreate, genPod("default", "pod-3", "3"))))
-}
-
-func genPod(ns, name, vsn string) *v1.Pod {
-	return &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       ns,
-			Name:            name,
-			ResourceVersion: vsn,
-		},
-	}
-}
-
-func genEvent(et EventType, ns, name, vsn string) Event {
-	return NewEvent(et, genPod(ns, name, vsn))
+	assert.Empty(t, cache.update(NewEvent(EventTypeDelete, testGenPod("default", "pod-3", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeUpdate, testGenPod("default", "pod-3", "3"))))
+	assert.Empty(t, cache.update(NewEvent(EventTypeCreate, testGenPod("default", "pod-3", "3"))))
 }
