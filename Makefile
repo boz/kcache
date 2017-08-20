@@ -5,12 +5,16 @@ test:
 	govendor test +local
 
 test-full: example
-	govendor test -v -race +local
+	govendor test -race +local
+
+test-cover:
+	goveralls -service=travis-ci
 
 install-libs:
 	govendor install +vendor,^program
 
 install-deps:
+	go get github.com/mattn/goveralls
 	go get github.com/kardianos/govendor
 	govendor sync
 

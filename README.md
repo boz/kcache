@@ -1,4 +1,4 @@
-# kcache: kubernetes object cache [![Build Status](https://travis-ci.org/boz/kcache.svg?branch=master)](https://travis-ci.org/boz/kcache)
+# kcache: kubernetes object cache [![Build Status](https://travis-ci.org/boz/kcache.svg?branch=master)](https://travis-ci.org/boz/kcache) [![Coverage Status](https://coveralls.io/repos/github/boz/kcache/badge.svg?branch=master)](https://coveralls.io/github/boz/kcache?branch=master)
 
 Kcache is a replacement for [k8s.io/client-go/tools/cache](https://github.com/kubernetes/client-go/tree/master/tools/cache).
 

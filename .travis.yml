@@ -7,4 +7,8 @@ go:
 install:
   - make install-deps
 
-script: make test-full
+script: |
+  make test-full && \
+  if [ "$TRAVIS_GO_VERSION" == "1.8" ]; then
+    travis_wait make test-cover
+  fi
