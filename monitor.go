@@ -90,7 +90,7 @@ func NewMonitor(publisher Publisher, handler Handler) (Monitor, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := &monitor{sub, handler}
+	m := &monitor{sub, handler, make(chan struct{})}
 	go m.run()
 	return m, nil
 }
@@ -98,9 +98,11 @@ func NewMonitor(publisher Publisher, handler Handler) (Monitor, error) {
 type monitor struct {
 	sub     Subscription
 	handler Handler
+	donech  chan struct{}
 }
 
 func (m *monitor) run() {
+	defer close(m.donech)
 
 	select {
 	case <-m.sub.Done():
@@ -135,5 +137,5 @@ func (m *monitor) Close() {
 }
 
 func (m *monitor) Done() <-chan struct{} {
-	return m.sub.Done()
+	return m.donech
 }

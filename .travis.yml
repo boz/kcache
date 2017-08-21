@@ -7,8 +7,11 @@ go:
 install:
   - make install-deps
 
+env:
+  - KCACHE_TEST_ASYNC_DURATION=20ms
+
 script: |
   make test-full && \
   if [ "$TRAVIS_GO_VERSION" == "1.8" ]; then
-    travis_wait make test-cover
+    travis_wait 30 make test-cover
   fi

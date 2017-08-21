@@ -7,6 +7,7 @@ import (
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/nsname"
+	"github.com/boz/kcache/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +25,7 @@ func TestFilterSubscriptionReady_immediate(t *testing.T) {
 
 	close(readych)
 
-	testAssertReady(t, "immediate", sub)
+	testutil.AssertReady(t, "immediate", sub)
 
 	list, err := sub.Cache().List()
 	assert.NoError(t, err)
@@ -35,7 +36,7 @@ func TestFilterSubscriptionReady_immediate(t *testing.T) {
 
 	select {
 	case <-sub.Events():
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, "deferred")
 	}
 
@@ -56,7 +57,7 @@ func TestFilterSubscriptionReady_deferred(t *testing.T) {
 
 	close(readych)
 
-	testAssertNotReady(t, "deferred", sub)
+	testutil.AssertNotReady(t, "deferred", sub)
 
 	list, err := sub.Cache().List()
 	assert.NoError(t, err)
@@ -68,7 +69,7 @@ func TestFilterSubscriptionReady_deferred(t *testing.T) {
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "deferred")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
 
 	testDoTestFilterSubscriptionShutdown(t, "deferred", parent, sub)
@@ -90,25 +91,26 @@ func TestFilterSubscriptionRefilter_immediate_refilter_before_ready(t *testing.T
 	f := filter.NSName(nsname.New("a", "c"))
 
 	sub.Refilter(f)
+	sub.Refilter(f)
 
-	testAssertNotReady(t, "ready", sub)
+	testutil.AssertNotReady(t, "ready", sub)
 
 	parent.send(testGenEvent(EventTypeCreate, "a", "d", "3"))
 
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "events before ready")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
 
 	close(readych)
 
-	testAssertReady(t, "ready", sub)
+	testutil.AssertReady(t, "ready", sub)
 
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "events after ready")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
 
 	list, err := sub.Cache().List()
@@ -126,7 +128,7 @@ func TestFilterSubscriptionRefilter_immediate_refilter_before_ready(t *testing.T
 		assert.Equal(t, EventTypeUpdate, evt.Type())
 		assert.Equal(t, "a", evt.Resource().GetNamespace())
 		assert.Equal(t, "c", evt.Resource().GetName())
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, "events after ready")
 	}
 
@@ -134,9 +136,29 @@ func TestFilterSubscriptionRefilter_immediate_refilter_before_ready(t *testing.T
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "filtered event")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
 
+	sub.Refilter(f)
+	select {
+	case <-sub.Events():
+		assert.Fail(t, "events for unchanged refilter")
+	case <-testutil.AsyncWaitch(ctx):
+	}
+
+	sub.Refilter(filter.All())
+	select {
+	case evt, ok := <-sub.Events():
+		assert.True(t, ok)
+		assert.Equal(t, EventTypeDelete, evt.Type())
+		assert.Equal(t, "a", evt.Resource().GetNamespace())
+		assert.Equal(t, "c", evt.Resource().GetName())
+	case <-testutil.AsyncWaitch(ctx):
+		assert.Fail(t, "events for unchanged refilter")
+	}
+
+	sub.Close()
+	testutil.AssertDone(t, "subscription", sub)
 }
 
 func TestFilterSubscriptionRefilter_immediate_refilter_after_ready(t *testing.T) {
@@ -155,7 +177,7 @@ func TestFilterSubscriptionRefilter_immediate_refilter_after_ready(t *testing.T)
 
 	close(readych)
 
-	testAssertReady(t, "ready", sub)
+	testutil.AssertReady(t, "ready", sub)
 
 	sub.Refilter(f)
 
@@ -166,7 +188,7 @@ func TestFilterSubscriptionRefilter_immediate_refilter_after_ready(t *testing.T)
 		assert.Equal(t, EventTypeDelete, evt.Type())
 		assert.Equal(t, "a", evt.Resource().GetNamespace())
 		assert.Equal(t, "b", evt.Resource().GetName())
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, "events after refilter")
 	}
 
@@ -184,7 +206,7 @@ func TestFilterSubscriptionRefilter_immediate_refilter_after_ready(t *testing.T)
 		assert.Equal(t, EventTypeUpdate, evt.Type())
 		assert.Equal(t, "a", evt.Resource().GetNamespace())
 		assert.Equal(t, "c", evt.Resource().GetName())
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, "events after ready")
 	}
 
@@ -192,7 +214,7 @@ func TestFilterSubscriptionRefilter_immediate_refilter_after_ready(t *testing.T)
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "filtered event")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
 
 }
@@ -213,16 +235,16 @@ func TestFilterSubscriptionRefilter_deferred_refilter_before_ready(t *testing.T)
 
 	sub.Refilter(f)
 
-	testAssertNotReady(t, "ready before refilter", sub)
+	testutil.AssertNotReady(t, "ready before refilter", sub)
 
 	close(readych)
 
-	testAssertReady(t, "sub after refilter", sub)
+	testutil.AssertReady(t, "sub after refilter", sub)
 
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "events after refilter")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
 
 	list, err := sub.Cache().List()
@@ -239,7 +261,7 @@ func TestFilterSubscriptionRefilter_deferred_refilter_before_ready(t *testing.T)
 		assert.Equal(t, EventTypeUpdate, evt.Type())
 		assert.Equal(t, "a", evt.Resource().GetNamespace())
 		assert.Equal(t, "c", evt.Resource().GetName())
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, "events after ready")
 	}
 
@@ -247,8 +269,11 @@ func TestFilterSubscriptionRefilter_deferred_refilter_before_ready(t *testing.T)
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "filtered event")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
+
+	sub.Close()
+	testutil.AssertDone(t, "subscription", sub)
 }
 
 func TestFilterSubscriptionRefilter_deferred_refilter_after_ready(t *testing.T) {
@@ -267,16 +292,16 @@ func TestFilterSubscriptionRefilter_deferred_refilter_after_ready(t *testing.T) 
 
 	close(readych)
 
-	testAssertNotReady(t, "sub  before refilter", sub)
+	testutil.AssertNotReady(t, "sub  before refilter", sub)
 
 	sub.Refilter(f)
 
-	testAssertReady(t, "sub after refilter", sub)
+	testutil.AssertReady(t, "sub after refilter", sub)
 
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "events after refilter")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
 
 	list, err := sub.Cache().List()
@@ -293,7 +318,7 @@ func TestFilterSubscriptionRefilter_deferred_refilter_after_ready(t *testing.T) 
 		assert.Equal(t, EventTypeUpdate, evt.Type())
 		assert.Equal(t, "a", evt.Resource().GetNamespace())
 		assert.Equal(t, "c", evt.Resource().GetName())
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, "events after ready")
 	}
 
@@ -301,8 +326,11 @@ func TestFilterSubscriptionRefilter_deferred_refilter_after_ready(t *testing.T) 
 	select {
 	case <-sub.Events():
 		assert.Fail(t, "filtered event")
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
+
+	sub.Close()
+	testutil.AssertDone(t, "subscription", sub)
 }
 
 func testDoFilterSubscriptionReady(t *testing.T, name string, parent subscription, sub FilterSubscription, c cache) {
@@ -310,14 +338,14 @@ func testDoFilterSubscriptionReady(t *testing.T, name string, parent subscriptio
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	testAssertNotDone(t, name, sub)
-	testAssertNotReady(t, name, sub)
+	testutil.AssertNotDone(t, name, sub)
+	testutil.AssertNotReady(t, name, sub)
 
 	evt := testGenEvent(EventTypeCreate, "a", "b", "1")
 	c.update(evt)
 	parent.send(evt)
 
-	testAssertNotReady(t, name, sub)
+	testutil.AssertNotReady(t, name, sub)
 
 	list, err := sub.Cache().List()
 	assert.NoError(t, err, name)
@@ -326,7 +354,7 @@ func testDoFilterSubscriptionReady(t *testing.T, name string, parent subscriptio
 	select {
 	case <-sub.Events():
 		assert.Fail(t, name)
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 	}
 
 }
@@ -337,13 +365,12 @@ func testDoTestFilterSubscriptionShutdown(t *testing.T, name string, parent subs
 	defer cancel()
 
 	parent.Close()
-
-	testAssertDone(t, name, sub)
+	testutil.AssertDone(t, name, sub)
 
 	select {
 	case _, ok := <-sub.Events():
 		assert.False(t, ok, name)
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, name)
 	}
 

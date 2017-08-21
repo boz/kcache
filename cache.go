@@ -2,7 +2,6 @@ package kcache
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	lifecycle "github.com/boz/go-lifecycle"
@@ -22,6 +21,7 @@ type cache interface {
 	sync([]metav1.Object) []Event
 	update(Event) []Event
 	refilter([]metav1.Object, filter.Filter) []Event
+	Done() <-chan struct{}
 }
 
 type cacheKey struct {
@@ -133,12 +133,16 @@ func (c *_cache) refilter(list []metav1.Object, filter filter.Filter) []Event {
 	return <-resultch
 }
 
+func (c *_cache) Done() <-chan struct{} {
+	return c.lc.Done()
+}
+
 func (c *_cache) List() ([]metav1.Object, error) {
 	resultch := make(chan []metav1.Object, 1)
 
 	select {
 	case <-c.lc.ShuttingDown():
-		return nil, fmt.Errorf("not running")
+		return nil, ErrNotRunning
 	case c.listch <- resultch:
 	}
 
@@ -155,7 +159,7 @@ func (c *_cache) Get(ns, name string) (metav1.Object, error) {
 	request := getRequest{key, resultch}
 	select {
 	case <-c.lc.ShuttingDown():
-		return nil, fmt.Errorf("not running")
+		return nil, ErrNotRunning
 	case c.getch <- request:
 	}
 	return <-resultch, nil
@@ -291,11 +295,6 @@ func (c *_cache) doUpdate(evt Event) []Event {
 			// filter-delete
 			events = append(events, NewEvent(EventTypeDelete, obj))
 			delete(c.items, key)
-		case found && current.version >= entry.version:
-			if !c.filter.Accept(current.object) {
-				events = append(events, NewEvent(EventTypeDelete, obj))
-				delete(c.items, key)
-			}
 		}
 	}
 

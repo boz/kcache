@@ -134,3 +134,13 @@ func FiltersEqual(f1, f2 Filter) bool {
 
 	return false
 }
+
+func FN(fn func(metav1.Object) bool) Filter {
+	return fnFilter(fn)
+}
+
+type fnFilter func(metav1.Object) bool
+
+func (f fnFilter) Accept(obj metav1.Object) bool {
+	return f(obj)
+}

@@ -145,8 +145,8 @@ func (c *controller) run() {
 		case evt := <-c.watcher.events():
 
 			events := c.cache.update(evt)
-
 			c.distributeEvents(events)
+
 		}
 	}
 }

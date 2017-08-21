@@ -105,3 +105,17 @@ func TestFiltersEqual(t *testing.T) {
 	assert.True(t, filter.FiltersEqual(filter.NSName(nsname.New("a", "1")), filter.NSName(nsname.New("a", "1"))))
 	assert.False(t, filter.FiltersEqual(filter.NSName(nsname.New("a", "1")), filter.NSName(nsname.New("a", "2"))))
 }
+
+func TestFN(t *testing.T) {
+	o1 := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "1"}}
+	o2 := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "1"}}
+
+	f1 := filter.FN(func(obj metav1.Object) bool {
+		return obj.GetNamespace() == "a"
+	})
+
+	assert.True(t, f1.Accept(o1))
+	assert.False(t, f1.Accept(o2))
+	assert.False(t, filter.FiltersEqual(f1, f1))
+	assert.False(t, filter.FiltersEqual(f1, filter.All()))
+}

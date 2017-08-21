@@ -20,7 +20,7 @@ type joinDef struct {
 func main() {
 
 	if len(os.Args) != 6 {
-		fmt.Println("USAGE: %v: <src-name> <src-pkg> <src-type> <dst-name> <dst-pkg>\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "USAGE: %v: <src-name> <src-pkg> <src-type> <dst-name> <dst-pkg>\n", os.Args[0])
 		os.Exit(1)
 	}
 

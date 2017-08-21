@@ -1,4 +1,4 @@
-package gen
+package main
 
 import (
 	"github.com/boz/kcache/client"

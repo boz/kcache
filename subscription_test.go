@@ -6,6 +6,7 @@ import (
 
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"
+	"github.com/boz/kcache/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,8 +27,8 @@ func testDoTestSubscription(t *testing.T, name string, stopfn func(subscription,
 	sub := newSubscription(log, stopch, readych, cache)
 	defer sub.Close()
 
-	testAssertNotDone(t, name, sub)
-	testAssertNotReady(t, name, sub)
+	testutil.AssertNotDone(t, name, sub)
+	testutil.AssertNotReady(t, name, sub)
 
 	evt := testGenEvent(EventTypeCreate, "a", "b", "1")
 	sub.send(evt)
@@ -36,21 +37,21 @@ func testDoTestSubscription(t *testing.T, name string, stopfn func(subscription,
 	case ev, ok := <-sub.Events():
 		assert.True(t, ok, name)
 		assert.Equal(t, evt, ev, name)
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, name)
 	}
 
 	stopfn(sub, stopch)
 
-	testAssertDone(t, name, sub)
-	testAssertNotReady(t, name, sub)
+	testutil.AssertDone(t, name, sub)
+	testutil.AssertNotReady(t, name, sub)
 
 	sub.send(evt)
 
 	select {
 	case _, ok := <-sub.Events():
 		assert.False(t, ok, name)
-	case <-testAsyncWaitch(ctx):
+	case <-testutil.AsyncWaitch(ctx):
 		assert.Fail(t, name)
 	}
 

@@ -5,7 +5,7 @@ test:
 	govendor test +local
 
 test-full: example
-	govendor test -race +local
+	govendor test -race +local,^program
 
 test-cover:
 	goveralls -service=travis-ci
@@ -18,7 +18,7 @@ install-deps:
 	go get github.com/kardianos/govendor
 	govendor sync
 
-generate: generate-types generate-joins
+generate: generate-types generate-type-tests generate-joins
 
 generate-types:
 	genny -in=types/gen/template.go -out=types/pod/generated.go -pkg=pod gen 'ObjectType=*v1.Pod'
@@ -32,6 +32,20 @@ generate-types:
 	genny -in=types/gen/template.go -out=types/deployment/generated.go -pkg=deployment gen 'ObjectType=*v1beta1.Deployment'
 	genny -in=types/gen/template.go -out=types/daemonset/generated.go -pkg=daemonset gen 'ObjectType=*v1beta1.DaemonSet'
 	go build ./types/...
+
+generate-type-tests:
+	go build -o ./types/gen/gen ./types/gen
+	./types/gen/gen v1.Pod > types/pod/generated_test.go
+	./types/gen/gen v1beta1.Ingress > types/ingress/generated_test.go
+	./types/gen/gen v1.Secret > types/secret/generated_test.go
+	./types/gen/gen v1.Service > types/service/generated_test.go
+	./types/gen/gen v1.Event > types/event/generated_test.go
+	./types/gen/gen v1.Node > types/node/generated_test.go
+	./types/gen/gen v1.ReplicationController > types/replicationcontroller/generated_test.go
+	./types/gen/gen v1beta1.ReplicaSet > types/replicaset/generated_test.go
+	./types/gen/gen v1beta1.Deployment > types/deployment/generated_test.go
+	./types/gen/gen v1beta1.DaemonSet > types/daemonset/generated_test.go
+	go test ./types/...
 
 generate-joins:
 	go build -o ./join/gen/gen ./join/gen
@@ -47,8 +61,8 @@ example:
 	go build -o _example/example ./_example
 
 clean:
-	rm join/gen/gen _example/example 2>/dev/null || true
+	rm join/gen/gen types/gen/gen _example/example 2>/dev/null || true
 
 .PHONY: build test test-full install-deps install-libs \
-	generate generate-types generate-joins \
+	generate generate-types generate-type-tests generate-joins \
 	example clean

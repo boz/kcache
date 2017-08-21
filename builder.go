@@ -36,6 +36,7 @@ type WatcherBuilder interface {
 func NewBuilder() Builder {
 	return &builder{
 		filter: filter.Null(),
+		log:    logutil.Default(),
 		ctx:    context.Background(),
 		lb:     newListerBuilder(),
 		wb:     newWatcherBuilder(),

@@ -90,4 +90,5 @@ func TestLabelSelector(t *testing.T) {
 	assert.False(t, fnil.Equals(fmatch))
 	assert.False(t, fmatch.Equals(fexpr))
 	assert.False(t, fexpr.Equals(fmatch))
+	assert.False(t, fexpr.Equals(filter.All()))
 }
