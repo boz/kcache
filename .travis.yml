@@ -8,7 +8,7 @@ install:
   - make install-deps
 
 env:
-  - KCACHE_TEST_ASYNC_DURATION=20ms
+  - KCACHE_TEST_ASYNC_DURATION=40ms
 
 script: |
   make test-full && \
