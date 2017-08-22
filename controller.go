@@ -2,16 +2,17 @@ package kcache
 
 import (
 	"context"
-	"errors"
+	builtin_errors "errors"
 
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/client"
 	"github.com/boz/kcache/filter"
+	"github.com/pkg/errors"
 )
 
 var (
-	ErrNotRunning = errors.New("Not running")
+	ErrNotRunning = builtin_errors.New("Not running")
 )
 
 type Publisher interface {
@@ -33,6 +34,7 @@ type Controller interface {
 	Publisher
 	Done() <-chan struct{}
 	Close()
+	Error() error
 }
 
 func NewController(ctx context.Context, log logutil.Log, client client.Client) (Controller, error) {
@@ -65,11 +67,15 @@ func (c *controller) Ready() <-chan struct{} {
 }
 
 func (c *controller) Close() {
-	c.lc.Shutdown()
+	c.lc.Shutdown(nil)
 }
 
 func (c *controller) Done() <-chan struct{} {
 	return c.lc.Done()
+}
+
+func (c *controller) Error() error {
+	return c.lc.Error()
 }
 
 func (c *controller) Cache() CacheReader {
@@ -102,57 +108,108 @@ func (c *controller) CloneForFilter() (FilterController, error) {
 
 func (c *controller) run() {
 	defer c.lc.ShutdownCompleted()
-	defer c.lc.ShutdownInitiated()
 	initialized := false
 
+mainloop:
 	for {
 		select {
-		case <-c.lc.ShutdownRequest():
-			return
+
+		case err := <-c.lc.ShutdownRequest():
+
+			c.log.Debugf("shutdown request: %v", err)
+			c.lc.ShutdownInitiated(err)
+			break mainloop
+
+		case <-c.lister.Done():
+
+			err := c.lister.Error()
+			c.log.Debugf("lister complete: %v", err)
+			c.lc.ShutdownInitiated(errors.Wrap(err, "lister complete"))
+			break mainloop
+
+		case <-c.watcher.Done():
+
+			err := c.watcher.Error()
+			c.log.Debugf("watcher complete: %v", err)
+			c.lc.ShutdownInitiated(errors.Wrap(err, "watcher complete"))
+			break mainloop
+
+		case <-c.cache.Done():
+
+			err := c.cache.Error()
+			c.log.Debugf("cache complete: %v", err)
+			c.lc.ShutdownInitiated(errors.Wrap(err, "cache complete"))
+			break mainloop
 
 		case result := <-c.lister.Result():
 
 			if result.err != nil {
-				c.log.Err(result.err, "lister error")
-				return
+				c.log.Errorf("lister error: %v", result.err)
+				c.lc.ShutdownInitiated(errors.Wrap(result.err, "lister result"))
+				break mainloop
 			}
 
 			version, err := listResourceVersion(result.list)
 			if err != nil {
-				c.log.Err(result.err, "error fetching resource version")
-				return
+				c.log.Errorf("resource version error: %v", err)
+				c.lc.ShutdownInitiated(errors.Wrap(err, "listing resource version"))
+				break mainloop
 			}
+
+			c.log.Debugf("list version: %v", version)
 
 			list, err := extractList(result.list)
 			if err != nil {
-				c.log.Err(result.err, "extractList()")
-				return
+				c.log.Errorf("extract list error: %v", err)
+				c.lc.ShutdownInitiated(errors.Wrap(err, "extracting list"))
+				break mainloop
 			}
 
-			events := c.cache.sync(list)
+			events, err := c.cache.sync(list)
+			if err != nil {
+				c.log.Errorf("cache sync error: %v", err)
+				c.lc.ShutdownInitiated(err)
+				break mainloop
+			}
 
-			c.log.Debugf("list complete: version: %v, items: %v, events: %v", version, len(list), len(events))
+			c.log.Debugf("list complete: version: %v, items: %v, events: %v",
+				version, len(list), len(events))
 
 			if !initialized {
+				c.log.Debugf("ready")
 				initialized = true
 				close(c.readych)
 			} else {
 				c.distributeEvents(events)
 			}
 
-			c.watcher.reset(version)
+			if err := c.watcher.reset(version); err != nil {
+				c.log.Errorf("watcher reset error: %v", err)
+				c.lc.ShutdownInitiated(errors.Wrap(err, "watcher reset"))
+				break mainloop
+			}
 
 		case evt := <-c.watcher.events():
+			c.log.Debugf("update event: %v", evt)
 
-			events := c.cache.update(evt)
+			events, err := c.cache.update(evt)
+			if err != nil {
+				c.log.Errorf("update event: cache update error %v", err)
+				c.lc.ShutdownInitiated(errors.Wrap(err, "updating cache"))
+				break mainloop
+			}
 			c.distributeEvents(events)
-
 		}
 	}
+
+	<-c.cache.Done()
+	<-c.watcher.Done()
+	<-c.lister.Done()
 }
 
 func (c *controller) distributeEvents(events []Event) {
 	for _, evt := range events {
 		c.subscription.send(evt)
 	}
+	c.log.Debugf("distribute events: %v events", len(events))
 }

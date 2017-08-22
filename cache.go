@@ -7,6 +7,7 @@ import (
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"
+	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -18,10 +19,11 @@ type CacheReader interface {
 
 type cache interface {
 	CacheReader
-	sync([]metav1.Object) []Event
-	update(Event) []Event
-	refilter([]metav1.Object, filter.Filter) []Event
+	sync([]metav1.Object) ([]Event, error)
+	update(Event) ([]Event, error)
+	refilter([]metav1.Object, filter.Filter) ([]Event, error)
 	Done() <-chan struct{}
+	Error() error
 }
 
 type cacheKey struct {
@@ -94,47 +96,53 @@ func newCache(ctx context.Context, log logutil.Log, stopch <-chan struct{}, filt
 	return c
 }
 
-func (c *_cache) sync(list []metav1.Object) []Event {
+func (c *_cache) sync(list []metav1.Object) ([]Event, error) {
 	resultch := make(chan []Event, 1)
 	request := syncRequest{list, resultch}
 
 	select {
 	case <-c.lc.ShuttingDown():
-		return nil
+		return nil, errors.WithStack(ErrNotRunning)
 	case c.syncch <- request:
 	}
 
-	return <-resultch
+	return <-resultch, nil
 }
 
-func (c *_cache) update(evt Event) []Event {
+func (c *_cache) update(evt Event) ([]Event, error) {
+
 	resultch := make(chan []Event, 1)
 	request := updateRequest{evt, resultch}
 
 	select {
 	case <-c.lc.ShuttingDown():
-		return nil
+		return nil, errors.WithStack(ErrNotRunning)
 	case c.updatech <- request:
 	}
 
-	return <-resultch
+	return <-resultch, nil
+
 }
 
-func (c *_cache) refilter(list []metav1.Object, filter filter.Filter) []Event {
+func (c *_cache) refilter(list []metav1.Object, filter filter.Filter) ([]Event, error) {
 	resultch := make(chan []Event, 1)
 	request := refilterRequest{list, filter, resultch}
 
 	select {
 	case <-c.lc.ShuttingDown():
-		return nil
+		return nil, errors.WithStack(ErrNotRunning)
 	case c.refilterch <- request:
 	}
 
-	return <-resultch
+	return <-resultch, nil
 }
 
 func (c *_cache) Done() <-chan struct{} {
 	return c.lc.Done()
+}
+
+func (c *_cache) Error() error {
+	return c.lc.Error()
 }
 
 func (c *_cache) List() ([]metav1.Object, error) {
@@ -142,7 +150,7 @@ func (c *_cache) List() ([]metav1.Object, error) {
 
 	select {
 	case <-c.lc.ShuttingDown():
-		return nil, ErrNotRunning
+		return nil, errors.WithStack(ErrNotRunning)
 	case c.listch <- resultch:
 	}
 
@@ -159,7 +167,7 @@ func (c *_cache) Get(ns, name string) (metav1.Object, error) {
 	request := getRequest{key, resultch}
 	select {
 	case <-c.lc.ShuttingDown():
-		return nil, ErrNotRunning
+		return nil, errors.WithStack(ErrNotRunning)
 	case c.getch <- request:
 	}
 	return <-resultch, nil
@@ -183,8 +191,8 @@ func (c *_cache) run() {
 			} else {
 				request.resultch <- nil
 			}
-		case <-c.lc.ShutdownRequest():
-			c.lc.ShutdownInitiated()
+		case err := <-c.lc.ShutdownRequest():
+			c.lc.ShutdownInitiated(err)
 			return
 		}
 	}

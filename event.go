@@ -1,6 +1,10 @@
 package kcache
 
-import "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 type EventType string
 
@@ -30,4 +34,9 @@ func (e event) Type() EventType {
 
 func (e event) Resource() v1.Object {
 	return e.resource
+}
+
+func (e event) String() string {
+	return fmt.Sprintf(
+		"Event{%v %v/%v}", e.eventType, e.Resource().GetNamespace(), e.resource.GetName())
 }

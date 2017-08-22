@@ -12,15 +12,22 @@ import (
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/client"
+	"github.com/pkg/errors"
 )
 
 var (
-	errInvalidType       = fmt.Errorf("Invalid type")
+	errInvalidType = fmt.Errorf("Invalid type")
+)
+
+const (
 	defaultRefreshPeriod = time.Minute
+	defaultRefreshFuzz   = 0.10
 )
 
 type lister interface {
 	Result() <-chan listResult
+	Done() <-chan struct{}
+	Error() error
 }
 
 type listResult struct {
@@ -62,83 +69,87 @@ func (l *_lister) Result() <-chan listResult {
 	return l.resultch
 }
 
+func (l *_lister) Done() <-chan struct{} {
+	return l.lc.Done()
+}
+
+func (l *_lister) Error() error {
+	return l.lc.Error()
+}
+
 func (l *_lister) run() {
 	defer l.lc.ShutdownCompleted()
 
-	var tickch <-chan time.Time
-	var ticker *time.Ticker
-
 	var resultch chan listResult
-
 	var result listResult
 
-	runch := l.list()
+	runch, donech := l.list()
 
+	ticker := newTicker(l.period, defaultRefreshFuzz)
+	var tickch <-chan int
+
+mainloop:
 	for {
 		select {
 		case <-tickch:
-			l.drainTicker(ticker)
-			l.log.Debugf("fetching list...")
-			runch = l.list()
+			runch, donech = l.list()
 			tickch = nil
-			ticker = nil
 
 		case result = <-runch:
 			resultch = l.resultch
 			runch = nil
 
 		case resultch <- result:
-			ticker = time.NewTicker(l.period)
-			tickch = ticker.C
+			ticker.Reset()
 			resultch = nil
+			tickch = ticker.Next()
 
-		case <-l.lc.ShutdownRequest():
-			l.lc.ShutdownInitiated()
-			l.drainTicker(ticker)
-			return
+		case err := <-l.lc.ShutdownRequest():
+			l.lc.ShutdownInitiated(err)
+			break mainloop
 		}
 	}
+
+	ticker.Stop()
+	<-ticker.Done()
+	<-donech
 }
 
-func (l *_lister) list() <-chan listResult {
+func (l *_lister) list() (<-chan listResult, <-chan struct{}) {
 	runch := make(chan listResult, 1)
+	donech := make(chan struct{})
+	ctx, cancel := context.WithCancel(l.ctx)
 
 	go func() {
-		ctx, cancel := context.WithCancel(l.ctx)
 		defer cancel()
 		select {
-		case runch <- l.executeList(ctx):
 		case <-l.lc.ShuttingDown():
+		case <-donech:
 		}
 	}()
 
-	return runch
+	go func() {
+		defer close(donech)
+		runch <- l.executeList(ctx)
+	}()
+
+	return runch, donech
 }
 
 func (l *_lister) executeList(ctx context.Context) listResult {
 	list, err := l.client.List(ctx, v1.ListOptions{})
+
 	if err != nil {
-		l.log.ErrWarn(err, "client.List()")
-		return listResult{nil, err}
+		if err != context.Canceled {
+			l.log.Errorf("client list: %v", err)
+		}
+		return listResult{nil, errors.Wrap(err, "client list")}
 	}
 
 	if _, ok := list.(meta.List); !ok {
-		l.log.Warnf("invalid type: %T", list)
-		return listResult{nil, errInvalidType}
+		l.log.Errorf("invalid type: %T", list)
+		return listResult{nil, errors.WithStack(errInvalidType)}
 	}
 
 	return listResult{list, nil}
-}
-
-func (l *_lister) drainTicker(ticker *time.Ticker) {
-	if ticker == nil {
-		return
-	}
-
-	ticker.Stop()
-
-	select {
-	case <-ticker.C:
-	default:
-	}
 }

@@ -64,16 +64,17 @@ type Controller interface {
 	Publisher
 	Done() <-chan struct{}
 	Close()
+	Error() error
 }
 
 type FilterSubscription interface {
 	Subscription
-	Refilter(filter.Filter)
+	Refilter(filter.Filter) error
 }
 
 type FilterController interface {
 	Controller
-	Refilter(filter.Filter)
+	Refilter(filter.Filter) error
 }
 
 type BaseHandler interface {
@@ -262,6 +263,10 @@ func (c *controller) Done() <-chan struct{} {
 	return c.parent.Done()
 }
 
+func (c *controller) Error() error {
+	return c.parent.Error()
+}
+
 func (c *controller) Cache() CacheReader {
 	return c.cache
 }
@@ -326,8 +331,8 @@ func newFilterController(parent kcache.FilterController) FilterController {
 	}
 }
 
-func (c *filterController) Refilter(f filter.Filter) {
-	c.filterParent.Refilter(f)
+func (c *filterController) Refilter(f filter.Filter) error {
+	return c.filterParent.Refilter(f)
 }
 
 type filterSubscription struct {
@@ -342,8 +347,8 @@ func newFilterSubscription(parent kcache.FilterSubscription) FilterSubscription 
 	}
 }
 
-func (s *filterSubscription) Refilter(f filter.Filter) {
-	s.filterParent.Refilter(f)
+func (s *filterSubscription) Refilter(f filter.Filter) error {
+	return s.filterParent.Refilter(f)
 }
 
 func NewMonitor(publisher Publisher, handler Handler) (kcache.Monitor, error) {

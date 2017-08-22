@@ -6,6 +6,7 @@ import (
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/client"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -15,6 +16,7 @@ type watchSession interface {
 	events() <-chan Event
 	done() <-chan struct{}
 	stop()
+	Error() error
 }
 
 type nullWatchSession struct{}
@@ -22,6 +24,7 @@ type nullWatchSession struct{}
 func (nullWatchSession) events() <-chan Event  { return nil }
 func (nullWatchSession) done() <-chan struct{} { return nil }
 func (nullWatchSession) stop()                 {}
+func (nullWatchSession) Error() error          { return nil }
 
 type _watchSession struct {
 	client  client.WatchClient
@@ -60,7 +63,11 @@ func (s *_watchSession) done() <-chan struct{} {
 }
 
 func (s *_watchSession) stop() {
-	s.lc.Shutdown()
+	s.lc.ShutdownAsync(nil)
+}
+
+func (s *_watchSession) Error() error {
+	return s.lc.Error()
 }
 
 func (s *_watchSession) events() <-chan Event {
@@ -69,12 +76,12 @@ func (s *_watchSession) events() <-chan Event {
 
 func (s *_watchSession) run() {
 	defer s.lc.ShutdownCompleted()
-	defer s.lc.ShutdownInitiated()
 	defer s.cancel()
 
 	conn, err := s.connect()
 	if err != nil {
-		s.log.Err(err, "error starting watch")
+		s.log.Debugf("connecting to server: %v", err)
+		s.lc.ShutdownInitiated(errors.Wrap(err, "connecting to server"))
 		return
 	}
 
@@ -82,9 +89,18 @@ func (s *_watchSession) run() {
 
 	for {
 		select {
-		case <-s.lc.ShutdownRequest():
+
+		case err := <-s.lc.ShutdownRequest():
+
+			s.lc.ShutdownInitiated(err)
 			return
-		case kevt := <-conn.ResultChan():
+
+		case kevt, ok := <-conn.ResultChan():
+
+			if !ok {
+				s.lc.ShutdownInitiated(nil)
+				return
+			}
 
 			if status, ok := kevt.Object.(*metav1.Status); ok {
 				s.logStatus(status)
@@ -93,7 +109,7 @@ func (s *_watchSession) run() {
 
 			obj, err := meta.Accessor(kevt.Object)
 			if err != nil {
-				s.log.ErrWarn(err, "meta.Accessor(%T)", kevt.Object)
+				s.lc.ShutdownInitiated(errors.Wrap(err, "meta accessor"))
 				return
 			}
 
@@ -109,7 +125,7 @@ func (s *_watchSession) run() {
 			}
 
 			if evt == nil {
-				s.log.Errorf("unknown event type: %v", kevt.Type)
+				s.log.Debugf("unknown event type: %v", kevt.Type)
 				continue
 			}
 
@@ -118,6 +134,7 @@ func (s *_watchSession) run() {
 			default:
 				s.log.Warnf("output buffer full; event missed.")
 			}
+
 		}
 	}
 }
@@ -131,5 +148,5 @@ func (s *_watchSession) connect() (watch.Interface, error) {
 }
 
 func (s *_watchSession) logStatus(status *metav1.Status) {
-	s.log.Infof("STATUS: %v %v %v [code: %v vsn: %v]", status.Status, status.Message, status.Reason, status.Code, status.GetResourceVersion())
+	s.log.Debugf("STATUS: %v %v %v [code: %v vsn: %v]", status.Status, status.Message, status.Reason, status.Code, status.GetResourceVersion())
 }

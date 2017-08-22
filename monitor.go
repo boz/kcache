@@ -1,12 +1,14 @@
 package kcache
 
 import (
+	lifecycle "github.com/boz/go-lifecycle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Monitor interface {
 	Close()
 	Done() <-chan struct{}
+	Error() error
 }
 
 type Handler interface {
@@ -90,7 +92,7 @@ func NewMonitor(publisher Publisher, handler Handler) (Monitor, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := &monitor{sub, handler, make(chan struct{})}
+	m := &monitor{sub, handler, lifecycle.New()}
 	go m.run()
 	return m, nil
 }
@@ -98,26 +100,36 @@ func NewMonitor(publisher Publisher, handler Handler) (Monitor, error) {
 type monitor struct {
 	sub     Subscription
 	handler Handler
-	donech  chan struct{}
+	lc      lifecycle.Lifecycle
 }
 
 func (m *monitor) run() {
-	defer close(m.donech)
+	defer m.lc.ShutdownCompleted()
 
 	select {
 	case <-m.sub.Done():
+		m.lc.ShutdownInitiated(nil)
 		return
 	case <-m.sub.Ready():
-		objs, _ := m.sub.Cache().List()
+		objs, err := m.sub.Cache().List()
+		if err != nil {
+			m.lc.ShutdownInitiated(err)
+			m.sub.Close()
+			<-m.sub.Done()
+			return
+		}
 		m.handler.OnInitialize(objs)
 	}
 
 	for {
 		select {
 		case <-m.sub.Done():
+			m.lc.ShutdownInitiated(nil)
 			return
 		case ev, ok := <-m.sub.Events():
 			if !ok {
+				m.lc.ShutdownInitiated(nil)
+				<-m.sub.Done()
 				return
 			}
 			switch ev.Type() {
@@ -130,6 +142,7 @@ func (m *monitor) run() {
 			}
 		}
 	}
+
 }
 
 func (m *monitor) Close() {
@@ -137,5 +150,12 @@ func (m *monitor) Close() {
 }
 
 func (m *monitor) Done() <-chan struct{} {
-	return m.donech
+	return m.lc.Done()
+}
+
+func (m *monitor) Error() error {
+	if err := m.lc.Error(); err != nil {
+		return err
+	}
+	return m.sub.Error()
 }

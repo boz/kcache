@@ -101,10 +101,13 @@ func doTestPublisherSubscribe(t *testing.T,
 	sub, err := publisher.Subscribe()
 	require.NoError(t, err)
 
+	testutil.AssertReady(t, "subscriber", sub)
+
 	testPublisherSubscriber(t, parent, cache, sub)
 
 	publisher.Close()
 	testutil.AssertDone(t, "publisher", publisher)
+	testutil.AssertDone(t, "sub", sub)
 }
 
 func TestPublisher_SubscribeWithFilter(t *testing.T) {
@@ -222,6 +225,7 @@ func doTestPublisherClone(t *testing.T,
 
 	publisher.Close()
 	testutil.AssertDone(t, "publisher", publisher)
+	testutil.AssertDone(t, "sub", sub)
 }
 
 func TestPublisher_CloneWithFilter(t *testing.T) {

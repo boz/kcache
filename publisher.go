@@ -4,11 +4,12 @@ import (
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"
+	"github.com/pkg/errors"
 )
 
 type FilterController interface {
 	Controller
-	Refilter(filter.Filter)
+	Refilter(filter.Filter) error
 }
 
 type publisher struct {
@@ -53,11 +54,15 @@ func (s *publisher) Done() <-chan struct{} {
 	return s.lc.Done()
 }
 
+func (s *publisher) Error() error {
+	return s.lc.Error()
+}
+
 func (s *publisher) Subscribe() (Subscription, error) {
 	resultch := make(chan Subscription, 1)
 	select {
 	case <-s.lc.ShuttingDown():
-		return nil, ErrNotRunning
+		return nil, errors.WithStack(ErrNotRunning)
 	case s.subscribech <- resultch:
 		return <-resultch, nil
 	}
@@ -105,13 +110,15 @@ func (s *publisher) CloneForFilter() (FilterController, error) {
 
 func (s *publisher) run() {
 	defer s.lc.ShutdownCompleted()
-	defer s.lc.ShutdownInitiated()
 
+loop:
 	for {
 		select {
 		case evt, ok := <-s.parent.Events():
 			if !ok {
-				return
+				s.log.Debugf("parent events closed")
+				s.lc.ShutdownInitiated(nil)
+				break loop
 			}
 			s.distributeEvent(evt)
 		case resultch := <-s.subscribech:
@@ -120,33 +127,44 @@ func (s *publisher) run() {
 			delete(s.subscriptions, sub)
 		}
 	}
+
+	for len(s.subscriptions) > 0 {
+		s.log.Debugf("draining: %v subscriptions", len(s.subscriptions))
+		select {
+		case sub := <-s.unsubscribech:
+			delete(s.subscriptions, sub)
+		}
+	}
+
+	<-s.parent.Done()
 }
 
 func (s *publisher) distributeEvent(evt Event) {
+	s.log.Debugf("distribute event: sending %v to %v subscriptions", evt, len(s.subscriptions))
+
 	for sub := range s.subscriptions {
 		sub.send(evt)
 	}
 }
 
 func (s *publisher) createSubscription() Subscription {
+	s.log.Debugf("create subscription: current count %v", len(s.subscriptions))
+
 	sub := newSubscription(s.log, s.lc.ShuttingDown(), s.parent.Ready(), s.parent.Cache())
 
 	s.subscriptions[sub] = struct{}{}
 
 	go func() {
-
 		select {
 		case <-sub.Done():
+			s.log.Debugf("create subscription: subscription done")
 		case <-s.lc.ShuttingDown():
+			s.log.Debugf("create subscription: shut down, killing subscription")
 			sub.Close()
-			return
+			<-sub.Done()
 		}
-
-		select {
-		case s.unsubscribech <- sub:
-		case <-s.lc.ShuttingDown():
-		}
-
+		s.unsubscribech <- sub
+		s.log.Debugf("create subscription: unsubscribed")
 	}()
 
 	return sub
@@ -201,6 +219,10 @@ func (c *filterController) Close() {
 	c.parent.Close()
 }
 
-func (c *filterController) Refilter(filter filter.Filter) {
-	c.subscription.Refilter(filter)
+func (c *filterController) Error() error {
+	return c.parent.Error()
+}
+
+func (c *filterController) Refilter(filter filter.Filter) error {
+	return c.subscription.Refilter(filter)
 }

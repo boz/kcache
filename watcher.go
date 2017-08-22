@@ -7,6 +7,7 @@ import (
 	lifecycle "github.com/boz/go-lifecycle"
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/client"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -14,8 +15,11 @@ const (
 )
 
 type watcher interface {
-	reset(string)
+	reset(string) error
 	events() <-chan Event
+
+	Done() <-chan struct{}
+	Error() error
 }
 
 type _watcher struct {
@@ -47,13 +51,16 @@ func newWatcher(ctx context.Context, log logutil.Log, stopch <-chan struct{}, cl
 	go w.lc.WatchContext(ctx)
 	go w.lc.WatchChannel(stopch)
 	go w.run()
+
 	return w
 }
 
-func (w *_watcher) reset(vsn string) {
+func (w *_watcher) reset(vsn string) error {
 	select {
 	case w.resetch <- vsn:
+		return nil
 	case <-w.lc.ShuttingDown():
+		return errors.WithStack(ErrNotRunning)
 	}
 }
 
@@ -67,9 +74,16 @@ func (w *_watcher) events() <-chan Event {
 	}
 }
 
+func (w *_watcher) Done() <-chan struct{} {
+	return w.lc.Done()
+}
+
+func (w *_watcher) Error() error {
+	return w.lc.Error()
+}
+
 func (w *_watcher) run() {
 	defer w.lc.ShutdownCompleted()
-	defer w.lc.ShutdownInitiated()
 
 	ctx, cancel := context.WithCancel(w.ctx)
 	defer cancel()
@@ -80,17 +94,15 @@ func (w *_watcher) run() {
 	var curVersion string
 
 	var retry *time.Timer
-	defer func() {
-		if retry != nil {
-			retry.Stop()
-		}
-	}()
 
+mainloop:
 	for {
 
 		select {
-		case <-w.lc.ShutdownRequest():
-			return
+		case err := <-w.lc.ShutdownRequest():
+			w.log.Debugf("shutdown request: %v", err)
+			w.lc.ShutdownInitiated(err)
+			break mainloop
 
 		case vsn := <-w.resetch:
 			w.log.Debugf("ressetting to version %v", vsn)
@@ -123,17 +135,29 @@ func (w *_watcher) run() {
 
 			curVersion = evt.Resource().GetResourceVersion()
 
+			w.log.Debugf("session event: %v version: %v", evt, curVersion)
+
 		case reqch := <-w.evtch:
 			reqch <- outch
 		}
 	}
+
+	cancel()
+	if retry != nil {
+		retry.Stop()
+	}
+
+	if _, ok := session.(*nullWatchSession); !ok {
+		<-session.done()
+	}
+
 }
 
 func (w *_watcher) scheduleRetry(ch chan string, vsn string) *time.Timer {
 	return time.AfterFunc(watchRetryDelay, func() {
 		select {
 		case ch <- vsn:
-		case <-w.lc.Done():
+		case <-w.lc.ShuttingDown():
 		}
 	})
 }

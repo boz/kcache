@@ -15,10 +15,10 @@
 			"revisionTime": "2017-03-24T14:02:28Z"
 		},
 		{
-			"checksumSHA1": "DUjGn2/bouPgKEb5xw7ns/rh1y0=",
+			"checksumSHA1": "9YmQ+CcdLYWkDkMSy1lAqy6HeD8=",
 			"path": "github.com/boz/go-lifecycle",
-			"revision": "b4a83b8a1dd3240842922bfc5bfba1bcbadb294a",
-			"revisionTime": "2017-05-02T06:09:24Z"
+			"revision": "c39961a5a0ce6b046f15d62bcbed79701666a9e0",
+			"revisionTime": "2017-08-22T09:51:36Z"
 		},
 		{
 			"checksumSHA1": "usaZ1e18JqJu5wqLcFTmVgUschY=",
@@ -213,6 +213,12 @@
 			"path": "github.com/mailru/easyjson/jwriter",
 			"revision": "2f5df55504ebc322e4d52d34df6a1f5b503bf26d",
 			"revisionTime": "2017-06-24T19:09:26Z"
+		},
+		{
+			"checksumSHA1": "rJab1YdNhQooDiBWNnt7TLWPyBU=",
+			"path": "github.com/pkg/errors",
+			"revision": "c605e284fe17294bda444b34710735b29d1a9d90",
+			"revisionTime": "2017-05-05T04:36:39Z"
 		},
 		{
 			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
