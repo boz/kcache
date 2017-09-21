@@ -89,7 +89,7 @@ func (s *_watchSession) run() {
 
 	for {
 
-		s.log.Debugf("loop")
+		s.log.Warnf("loop")
 
 		select {
 

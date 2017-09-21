@@ -225,6 +225,7 @@ loop:
 
 func (s *filterSubscription) distributeEvents(events []Event) {
 	for _, evt := range events {
+		s.log.Warnf("distributeEvents")
 		select {
 		case s.outch <- evt:
 		default:

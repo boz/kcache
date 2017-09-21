@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	logutil "github.com/boz/go-logutil"
+	"github.com/cloudflare/cfssl/log"
 
 	"github.com/boz/kcache"
 
@@ -198,6 +199,7 @@ func newSubscription(parent kcache.Subscription) *subscription {
 func (s *subscription) run() {
 	defer close(s.outch)
 	for pevt := range s.parent.Events() {
+		log.Warning("events")
 		evt, err := wrapEvent(pevt)
 		if err != nil {
 			continue

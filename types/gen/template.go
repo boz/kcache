@@ -9,6 +9,7 @@ import (
 	"github.com/boz/kcache/client"
 	"github.com/boz/kcache/filter"
 	"github.com/cheekybits/genny/generic"
+	"github.com/cloudflare/cfssl/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -190,6 +191,7 @@ func newSubscription(parent kcache.Subscription) *subscription {
 func (s *subscription) run() {
 	defer close(s.outch)
 	for pevt := range s.parent.Events() {
+		log.Warning("events")
 		evt, err := wrapEvent(pevt)
 		if err != nil {
 			continue
