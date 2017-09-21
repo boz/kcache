@@ -2,6 +2,7 @@ package kcache
 
 import (
 	lifecycle "github.com/boz/go-lifecycle"
+	"github.com/cloudflare/cfssl/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -122,6 +123,9 @@ func (m *monitor) run() {
 	}
 
 	for {
+
+		log.Warning("monitor loop")
+
 		select {
 		case <-m.sub.Done():
 			m.lc.ShutdownInitiated(nil)

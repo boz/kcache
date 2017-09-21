@@ -113,6 +113,9 @@ func (s *publisher) run() {
 
 loop:
 	for {
+
+		s.log.Warnf("loop")
+
 		select {
 		case evt, ok := <-s.parent.Events():
 			if !ok {

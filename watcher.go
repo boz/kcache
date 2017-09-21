@@ -98,6 +98,8 @@ func (w *_watcher) run() {
 mainloop:
 	for {
 
+		w.log.Warnf("loop")
+
 		select {
 		case err := <-w.lc.ShutdownRequest():
 			w.log.Debugf("shutdown request: %v", err)

@@ -176,6 +176,8 @@ func (c *_cache) Get(ns, name string) (metav1.Object, error) {
 func (c *_cache) run() {
 	defer c.lc.ShutdownCompleted()
 	for {
+		c.log.Warnf("loop")
+
 		select {
 		case request := <-c.syncch:
 			request.resultch <- c.doSync(request.list)

@@ -112,6 +112,9 @@ func (c *controller) run() {
 
 mainloop:
 	for {
+
+		c.log.Warnf("loop")
+
 		select {
 
 		case err := <-c.lc.ShutdownRequest():

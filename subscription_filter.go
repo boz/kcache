@@ -93,6 +93,9 @@ func (s *filterSubscription) run() {
 
 loop:
 	for {
+
+		s.log.Warnf("loop")
+
 		select {
 		case err := <-s.lc.ShutdownRequest():
 			s.log.Debugf("shutdown requested: %v", err)

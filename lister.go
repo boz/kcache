@@ -90,6 +90,9 @@ func (l *_lister) run() {
 
 mainloop:
 	for {
+
+		l.log.Warnf("loop")
+
 		select {
 		case <-tickch:
 			runch, donech = l.list()

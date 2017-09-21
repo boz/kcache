@@ -92,6 +92,8 @@ func (s *_subscription) run() {
 	defer close(s.outch)
 
 	for {
+
+		s.log.Warnf("loop")
 		select {
 		case err := <-s.lc.ShutdownRequest():
 			s.log.Debugf("shutdown requested: %v", err)

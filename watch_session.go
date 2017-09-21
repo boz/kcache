@@ -88,6 +88,9 @@ func (s *_watchSession) run() {
 	defer conn.Stop()
 
 	for {
+
+		s.log.Debugf("loop")
+
 		select {
 
 		case err := <-s.lc.ShutdownRequest():

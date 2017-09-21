@@ -3,6 +3,8 @@ package kcache
 import (
 	"math/rand"
 	"time"
+
+	"github.com/cloudflare/cfssl/log"
 )
 
 type ticker interface {
@@ -69,6 +71,8 @@ func (t *_ticker) run() {
 	var nextch chan int
 
 	for {
+
+		log.Warning("ticker loop")
 
 		select {
 
