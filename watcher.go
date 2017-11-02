@@ -147,10 +147,9 @@ mainloop:
 		retry.Stop()
 	}
 
-	if _, ok := session.(*nullWatchSession); !ok {
-		<-session.done()
+	if donech := session.done(); donech != nil {
+		<-donech
 	}
-
 }
 
 func (w *_watcher) scheduleRetry(ch chan string, vsn string) *time.Timer {
