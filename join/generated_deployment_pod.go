@@ -7,7 +7,7 @@ package join
 import (
 	"context"
 
-	"k8s.io/api/apps/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"

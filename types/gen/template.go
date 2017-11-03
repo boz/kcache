@@ -11,12 +11,16 @@ import (
 	"github.com/cheekybits/genny/generic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"k8s.io/api/extensions/v1beta1"
 )
 
 var (
 	ErrInvalidType = fmt.Errorf("invalid type")
 	adapter        = _adapter{}
 )
+
+var _ = v1beta1.Deployment{}
 
 type ObjectType generic.Type
 
