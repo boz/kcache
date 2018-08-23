@@ -1,4 +1,4 @@
-# kcache: kubernetes object cache [![Build Status](https://travis-ci.org/boz/kcache.svg?branch=master)](https://travis-ci.org/boz/kcache) [![Coverage Status](https://coveralls.io/repos/github/boz/kcache/badge.svg?branch=master)](https://coveralls.io/github/boz/kcache?branch=master)
+# kcache: kubernetes object cache [![Build Status](https://travis-ci.org/boz/kcache.svg?branch=master)](https://travis-ci.org/boz/kcache) [![codecov](https://codecov.io/gh/boz/kcache/branch/master/graph/badge.svg)](https://codecov.io/gh/boz/kcache) 
 
 Kcache is a [kubernetes](https://github.com/kubernetes/kubernetes) object data source similar to [k8s.io/client-go/tools/cache](https://github.com/kubernetes/client-go/tree/master/tools/cache) which uses channels to create a flexible event-based toolkit.  Features include [typed producers](#types), [joining between multiple producers](#joins), and [(re)filtering](#filtering).
 

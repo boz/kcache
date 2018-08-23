@@ -8,14 +8,14 @@ test-full: example
 	govendor test -race +local,^program
 
 test-cover:
-	goveralls -service=travis-ci
+	go test -coverprofile=coverage.txt -covermode=count -coverpkg="./..." ./...
+	curl -s https://codecov.io/bash | bash
 
 install-libs:
 	govendor install +vendor,^program
 
 install-deps:
-	go get github.com/mattn/goveralls
-	go get github.com/kardianos/govendor
+	go get -u github.com/kardianos/govendor
 	govendor sync
 
 generate: generate-types generate-type-tests generate-joins
