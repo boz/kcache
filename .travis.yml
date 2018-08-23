@@ -1,7 +1,10 @@
 language: go
 
+sudo: false
+
 go:
-  - 1.8
+  - 1.9
+  - "1.10"
   - master
 
 install:
@@ -12,6 +15,6 @@ env:
 
 script: |
   make test-full && \
-  if [ "$TRAVIS_GO_VERSION" == "1.8" ]; then
+  if [ "$TRAVIS_GO_VERSION" == "1.10" ]; then
     travis_wait 30 make test-cover
   fi
