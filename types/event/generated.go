@@ -6,23 +6,16 @@ package event
 
 import (
 	"context"
-
 	"fmt"
 
 	logutil "github.com/boz/go-logutil"
-
 	"github.com/boz/kcache"
-
 	"github.com/boz/kcache/client"
-
 	"github.com/boz/kcache/filter"
-
+	corev1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/kubernetes"
-
-	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 )
 
 var (
@@ -30,16 +23,16 @@ var (
 	adapter        = _adapter{}
 )
 
-var _ = v1beta1.Deployment{}
+var _ = extv1beta1.Deployment{}
 
 type Event interface {
 	Type() kcache.EventType
-	Resource() *v1.Event
+	Resource() *corev1.Event
 }
 
 type CacheReader interface {
-	Get(ns string, name string) (*v1.Event, error)
-	List() ([]*v1.Event, error)
+	Get(ns string, name string) (*corev1.Event, error)
+	List() ([]*corev1.Event, error)
 }
 
 type CacheController interface {
@@ -82,48 +75,48 @@ type FilterController interface {
 }
 
 type BaseHandler interface {
-	OnCreate(*v1.Event)
-	OnUpdate(*v1.Event)
-	OnDelete(*v1.Event)
+	OnCreate(*corev1.Event)
+	OnUpdate(*corev1.Event)
+	OnDelete(*corev1.Event)
 }
 
 type Handler interface {
 	BaseHandler
-	OnInitialize([]*v1.Event)
+	OnInitialize([]*corev1.Event)
 }
 
 type HandlerBuilder interface {
-	OnInitialize(func([]*v1.Event)) HandlerBuilder
-	OnCreate(func(*v1.Event)) HandlerBuilder
-	OnUpdate(func(*v1.Event)) HandlerBuilder
-	OnDelete(func(*v1.Event)) HandlerBuilder
+	OnInitialize(func([]*corev1.Event)) HandlerBuilder
+	OnCreate(func(*corev1.Event)) HandlerBuilder
+	OnUpdate(func(*corev1.Event)) HandlerBuilder
+	OnDelete(func(*corev1.Event)) HandlerBuilder
 	Create() Handler
 }
 
 type UnitaryHandler interface {
 	BaseHandler
-	OnInitialize(*v1.Event)
+	OnInitialize(*corev1.Event)
 }
 
 type UnitaryHandlerBuilder interface {
-	OnInitialize(func(*v1.Event)) UnitaryHandlerBuilder
-	OnCreate(func(*v1.Event)) UnitaryHandlerBuilder
-	OnUpdate(func(*v1.Event)) UnitaryHandlerBuilder
-	OnDelete(func(*v1.Event)) UnitaryHandlerBuilder
+	OnInitialize(func(*corev1.Event)) UnitaryHandlerBuilder
+	OnCreate(func(*corev1.Event)) UnitaryHandlerBuilder
+	OnUpdate(func(*corev1.Event)) UnitaryHandlerBuilder
+	OnDelete(func(*corev1.Event)) UnitaryHandlerBuilder
 	Create() UnitaryHandler
 }
 
 type _adapter struct{}
 
-func (_adapter) adaptObject(obj metav1.Object) (*v1.Event, error) {
-	if obj, ok := obj.(*v1.Event); ok {
+func (_adapter) adaptObject(obj metav1.Object) (*corev1.Event, error) {
+	if obj, ok := obj.(*corev1.Event); ok {
 		return obj, nil
 	}
 	return nil, ErrInvalidType
 }
 
-func (a _adapter) adaptList(objs []metav1.Object) ([]*v1.Event, error) {
-	var ret []*v1.Event
+func (a _adapter) adaptList(objs []metav1.Object) ([]*corev1.Event, error) {
+	var ret []*corev1.Event
 	for _, orig := range objs {
 		adapted, err := a.adaptObject(orig)
 		if err != nil {
@@ -142,7 +135,7 @@ type cache struct {
 	parent kcache.CacheReader
 }
 
-func (c *cache) Get(ns string, name string) (*v1.Event, error) {
+func (c *cache) Get(ns string, name string) (*corev1.Event, error) {
 	obj, err := c.parent.Get(ns, name)
 	switch {
 	case err != nil:
@@ -154,7 +147,7 @@ func (c *cache) Get(ns string, name string) (*v1.Event, error) {
 	}
 }
 
-func (c *cache) List() ([]*v1.Event, error) {
+func (c *cache) List() ([]*corev1.Event, error) {
 	objs, err := c.parent.List()
 	if err != nil {
 		return nil, err
@@ -164,7 +157,7 @@ func (c *cache) List() ([]*v1.Event, error) {
 
 type event struct {
 	etype    kcache.EventType
-	resource *v1.Event
+	resource *corev1.Event
 }
 
 func wrapEvent(evt kcache.Event) (Event, error) {
@@ -179,7 +172,7 @@ func (e event) Type() kcache.EventType {
 	return e.etype
 }
 
-func (e event) Resource() *v1.Event {
+func (e event) Resource() *corev1.Event {
 	return e.resource
 }
 
@@ -386,7 +379,7 @@ func NewMonitor(publisher Publisher, handler Handler) (kcache.Monitor, error) {
 
 func ToUnitary(log logutil.Log, delegate UnitaryHandler) Handler {
 	return BuildHandler().
-		OnInitialize(func(objs []*v1.Event) {
+		OnInitialize(func(objs []*corev1.Event) {
 			if count := len(objs); count > 1 {
 				log.Warnf("initialized with invalid count: %v", count)
 				return
@@ -397,13 +390,13 @@ func ToUnitary(log logutil.Log, delegate UnitaryHandler) Handler {
 			}
 			delegate.OnInitialize(objs[0])
 		}).
-		OnCreate(func(obj *v1.Event) {
+		OnCreate(func(obj *corev1.Event) {
 			delegate.OnCreate(obj)
 		}).
-		OnUpdate(func(obj *v1.Event) {
+		OnUpdate(func(obj *corev1.Event) {
 			delegate.OnUpdate(obj)
 		}).
-		OnDelete(func(obj *v1.Event) {
+		OnDelete(func(obj *corev1.Event) {
 			delegate.OnDelete(obj)
 		}).Create()
 }
@@ -417,39 +410,39 @@ func BuildUnitaryHandler() UnitaryHandlerBuilder {
 }
 
 type baseHandler struct {
-	onCreate func(*v1.Event)
-	onUpdate func(*v1.Event)
-	onDelete func(*v1.Event)
+	onCreate func(*corev1.Event)
+	onUpdate func(*corev1.Event)
+	onDelete func(*corev1.Event)
 }
 
 type handler struct {
 	baseHandler
-	onInitialize func([]*v1.Event)
+	onInitialize func([]*corev1.Event)
 }
 type handlerBuilder handler
 
 type unitaryHandler struct {
 	baseHandler
-	onInitialize func(*v1.Event)
+	onInitialize func(*corev1.Event)
 }
 type unitaryHandlerBuilder unitaryHandler
 
-func (hb *handlerBuilder) OnInitialize(fn func([]*v1.Event)) HandlerBuilder {
+func (hb *handlerBuilder) OnInitialize(fn func([]*corev1.Event)) HandlerBuilder {
 	hb.onInitialize = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnCreate(fn func(*v1.Event)) HandlerBuilder {
+func (hb *handlerBuilder) OnCreate(fn func(*corev1.Event)) HandlerBuilder {
 	hb.onCreate = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnUpdate(fn func(*v1.Event)) HandlerBuilder {
+func (hb *handlerBuilder) OnUpdate(fn func(*corev1.Event)) HandlerBuilder {
 	hb.onUpdate = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnDelete(fn func(*v1.Event)) HandlerBuilder {
+func (hb *handlerBuilder) OnDelete(fn func(*corev1.Event)) HandlerBuilder {
 	hb.onDelete = fn
 	return hb
 }
@@ -458,28 +451,28 @@ func (hb *handlerBuilder) Create() Handler {
 	return handler(*hb)
 }
 
-func (h handler) OnInitialize(objs []*v1.Event) {
+func (h handler) OnInitialize(objs []*corev1.Event) {
 	if h.onInitialize != nil {
 		h.onInitialize(objs)
 	}
 }
 
-func (hb *unitaryHandlerBuilder) OnInitialize(fn func(*v1.Event)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnInitialize(fn func(*corev1.Event)) UnitaryHandlerBuilder {
 	hb.onInitialize = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnCreate(fn func(*v1.Event)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnCreate(fn func(*corev1.Event)) UnitaryHandlerBuilder {
 	hb.onCreate = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnUpdate(fn func(*v1.Event)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnUpdate(fn func(*corev1.Event)) UnitaryHandlerBuilder {
 	hb.onUpdate = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnDelete(fn func(*v1.Event)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnDelete(fn func(*corev1.Event)) UnitaryHandlerBuilder {
 	hb.onDelete = fn
 	return hb
 }
@@ -488,25 +481,25 @@ func (hb *unitaryHandlerBuilder) Create() UnitaryHandler {
 	return unitaryHandler(*hb)
 }
 
-func (h unitaryHandler) OnInitialize(obj *v1.Event) {
+func (h unitaryHandler) OnInitialize(obj *corev1.Event) {
 	if h.onInitialize != nil {
 		h.onInitialize(obj)
 	}
 }
 
-func (h baseHandler) OnCreate(obj *v1.Event) {
+func (h baseHandler) OnCreate(obj *corev1.Event) {
 	if h.onCreate != nil {
 		h.onCreate(obj)
 	}
 }
 
-func (h baseHandler) OnUpdate(obj *v1.Event) {
+func (h baseHandler) OnUpdate(obj *corev1.Event) {
 	if h.onUpdate != nil {
 		h.onUpdate(obj)
 	}
 }
 
-func (h baseHandler) OnDelete(obj *v1.Event) {
+func (h baseHandler) OnDelete(obj *corev1.Event) {
 	if h.onDelete != nil {
 		h.onDelete(obj)
 	}

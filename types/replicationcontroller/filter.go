@@ -4,13 +4,13 @@ import (
 	"sort"
 
 	"github.com/boz/kcache/filter"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
-func PodsFilter(sources ...*v1.ReplicationController) filter.ComparableFilter {
+func PodsFilter(sources ...*corev1.ReplicationController) filter.ComparableFilter {
 
 	// make a copy and sort
-	srcs := make([]*v1.ReplicationController, len(sources))
+	srcs := make([]*corev1.ReplicationController, len(sources))
 	copy(srcs, sources)
 
 	sort.Slice(srcs, func(i, j int) bool {

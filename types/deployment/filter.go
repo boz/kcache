@@ -5,13 +5,13 @@ import (
 
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/nsname"
-	"k8s.io/api/extensions/v1beta1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 )
 
-func PodsFilter(sources ...*v1beta1.Deployment) filter.ComparableFilter {
+func PodsFilter(sources ...*extv1beta1.Deployment) filter.ComparableFilter {
 
 	// make a copy and sort
-	srcs := make([]*v1beta1.Deployment, len(sources))
+	srcs := make([]*extv1beta1.Deployment, len(sources))
 	copy(srcs, sources)
 
 	sort.Slice(srcs, func(i, j int) bool {

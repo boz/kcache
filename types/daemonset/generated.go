@@ -6,22 +6,15 @@ package daemonset
 
 import (
 	"context"
-
 	"fmt"
 
 	logutil "github.com/boz/go-logutil"
-
 	"github.com/boz/kcache"
-
 	"github.com/boz/kcache/client"
-
 	"github.com/boz/kcache/filter"
-
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/kubernetes"
-
-	"k8s.io/api/extensions/v1beta1"
 )
 
 var (
@@ -29,16 +22,16 @@ var (
 	adapter        = _adapter{}
 )
 
-var _ = v1beta1.Deployment{}
+var _ = extv1beta1.Deployment{}
 
 type Event interface {
 	Type() kcache.EventType
-	Resource() *v1beta1.DaemonSet
+	Resource() *extv1beta1.DaemonSet
 }
 
 type CacheReader interface {
-	Get(ns string, name string) (*v1beta1.DaemonSet, error)
-	List() ([]*v1beta1.DaemonSet, error)
+	Get(ns string, name string) (*extv1beta1.DaemonSet, error)
+	List() ([]*extv1beta1.DaemonSet, error)
 }
 
 type CacheController interface {
@@ -81,48 +74,48 @@ type FilterController interface {
 }
 
 type BaseHandler interface {
-	OnCreate(*v1beta1.DaemonSet)
-	OnUpdate(*v1beta1.DaemonSet)
-	OnDelete(*v1beta1.DaemonSet)
+	OnCreate(*extv1beta1.DaemonSet)
+	OnUpdate(*extv1beta1.DaemonSet)
+	OnDelete(*extv1beta1.DaemonSet)
 }
 
 type Handler interface {
 	BaseHandler
-	OnInitialize([]*v1beta1.DaemonSet)
+	OnInitialize([]*extv1beta1.DaemonSet)
 }
 
 type HandlerBuilder interface {
-	OnInitialize(func([]*v1beta1.DaemonSet)) HandlerBuilder
-	OnCreate(func(*v1beta1.DaemonSet)) HandlerBuilder
-	OnUpdate(func(*v1beta1.DaemonSet)) HandlerBuilder
-	OnDelete(func(*v1beta1.DaemonSet)) HandlerBuilder
+	OnInitialize(func([]*extv1beta1.DaemonSet)) HandlerBuilder
+	OnCreate(func(*extv1beta1.DaemonSet)) HandlerBuilder
+	OnUpdate(func(*extv1beta1.DaemonSet)) HandlerBuilder
+	OnDelete(func(*extv1beta1.DaemonSet)) HandlerBuilder
 	Create() Handler
 }
 
 type UnitaryHandler interface {
 	BaseHandler
-	OnInitialize(*v1beta1.DaemonSet)
+	OnInitialize(*extv1beta1.DaemonSet)
 }
 
 type UnitaryHandlerBuilder interface {
-	OnInitialize(func(*v1beta1.DaemonSet)) UnitaryHandlerBuilder
-	OnCreate(func(*v1beta1.DaemonSet)) UnitaryHandlerBuilder
-	OnUpdate(func(*v1beta1.DaemonSet)) UnitaryHandlerBuilder
-	OnDelete(func(*v1beta1.DaemonSet)) UnitaryHandlerBuilder
+	OnInitialize(func(*extv1beta1.DaemonSet)) UnitaryHandlerBuilder
+	OnCreate(func(*extv1beta1.DaemonSet)) UnitaryHandlerBuilder
+	OnUpdate(func(*extv1beta1.DaemonSet)) UnitaryHandlerBuilder
+	OnDelete(func(*extv1beta1.DaemonSet)) UnitaryHandlerBuilder
 	Create() UnitaryHandler
 }
 
 type _adapter struct{}
 
-func (_adapter) adaptObject(obj metav1.Object) (*v1beta1.DaemonSet, error) {
-	if obj, ok := obj.(*v1beta1.DaemonSet); ok {
+func (_adapter) adaptObject(obj metav1.Object) (*extv1beta1.DaemonSet, error) {
+	if obj, ok := obj.(*extv1beta1.DaemonSet); ok {
 		return obj, nil
 	}
 	return nil, ErrInvalidType
 }
 
-func (a _adapter) adaptList(objs []metav1.Object) ([]*v1beta1.DaemonSet, error) {
-	var ret []*v1beta1.DaemonSet
+func (a _adapter) adaptList(objs []metav1.Object) ([]*extv1beta1.DaemonSet, error) {
+	var ret []*extv1beta1.DaemonSet
 	for _, orig := range objs {
 		adapted, err := a.adaptObject(orig)
 		if err != nil {
@@ -141,7 +134,7 @@ type cache struct {
 	parent kcache.CacheReader
 }
 
-func (c *cache) Get(ns string, name string) (*v1beta1.DaemonSet, error) {
+func (c *cache) Get(ns string, name string) (*extv1beta1.DaemonSet, error) {
 	obj, err := c.parent.Get(ns, name)
 	switch {
 	case err != nil:
@@ -153,7 +146,7 @@ func (c *cache) Get(ns string, name string) (*v1beta1.DaemonSet, error) {
 	}
 }
 
-func (c *cache) List() ([]*v1beta1.DaemonSet, error) {
+func (c *cache) List() ([]*extv1beta1.DaemonSet, error) {
 	objs, err := c.parent.List()
 	if err != nil {
 		return nil, err
@@ -163,7 +156,7 @@ func (c *cache) List() ([]*v1beta1.DaemonSet, error) {
 
 type event struct {
 	etype    kcache.EventType
-	resource *v1beta1.DaemonSet
+	resource *extv1beta1.DaemonSet
 }
 
 func wrapEvent(evt kcache.Event) (Event, error) {
@@ -178,7 +171,7 @@ func (e event) Type() kcache.EventType {
 	return e.etype
 }
 
-func (e event) Resource() *v1beta1.DaemonSet {
+func (e event) Resource() *extv1beta1.DaemonSet {
 	return e.resource
 }
 
@@ -385,7 +378,7 @@ func NewMonitor(publisher Publisher, handler Handler) (kcache.Monitor, error) {
 
 func ToUnitary(log logutil.Log, delegate UnitaryHandler) Handler {
 	return BuildHandler().
-		OnInitialize(func(objs []*v1beta1.DaemonSet) {
+		OnInitialize(func(objs []*extv1beta1.DaemonSet) {
 			if count := len(objs); count > 1 {
 				log.Warnf("initialized with invalid count: %v", count)
 				return
@@ -396,13 +389,13 @@ func ToUnitary(log logutil.Log, delegate UnitaryHandler) Handler {
 			}
 			delegate.OnInitialize(objs[0])
 		}).
-		OnCreate(func(obj *v1beta1.DaemonSet) {
+		OnCreate(func(obj *extv1beta1.DaemonSet) {
 			delegate.OnCreate(obj)
 		}).
-		OnUpdate(func(obj *v1beta1.DaemonSet) {
+		OnUpdate(func(obj *extv1beta1.DaemonSet) {
 			delegate.OnUpdate(obj)
 		}).
-		OnDelete(func(obj *v1beta1.DaemonSet) {
+		OnDelete(func(obj *extv1beta1.DaemonSet) {
 			delegate.OnDelete(obj)
 		}).Create()
 }
@@ -416,39 +409,39 @@ func BuildUnitaryHandler() UnitaryHandlerBuilder {
 }
 
 type baseHandler struct {
-	onCreate func(*v1beta1.DaemonSet)
-	onUpdate func(*v1beta1.DaemonSet)
-	onDelete func(*v1beta1.DaemonSet)
+	onCreate func(*extv1beta1.DaemonSet)
+	onUpdate func(*extv1beta1.DaemonSet)
+	onDelete func(*extv1beta1.DaemonSet)
 }
 
 type handler struct {
 	baseHandler
-	onInitialize func([]*v1beta1.DaemonSet)
+	onInitialize func([]*extv1beta1.DaemonSet)
 }
 type handlerBuilder handler
 
 type unitaryHandler struct {
 	baseHandler
-	onInitialize func(*v1beta1.DaemonSet)
+	onInitialize func(*extv1beta1.DaemonSet)
 }
 type unitaryHandlerBuilder unitaryHandler
 
-func (hb *handlerBuilder) OnInitialize(fn func([]*v1beta1.DaemonSet)) HandlerBuilder {
+func (hb *handlerBuilder) OnInitialize(fn func([]*extv1beta1.DaemonSet)) HandlerBuilder {
 	hb.onInitialize = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnCreate(fn func(*v1beta1.DaemonSet)) HandlerBuilder {
+func (hb *handlerBuilder) OnCreate(fn func(*extv1beta1.DaemonSet)) HandlerBuilder {
 	hb.onCreate = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnUpdate(fn func(*v1beta1.DaemonSet)) HandlerBuilder {
+func (hb *handlerBuilder) OnUpdate(fn func(*extv1beta1.DaemonSet)) HandlerBuilder {
 	hb.onUpdate = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnDelete(fn func(*v1beta1.DaemonSet)) HandlerBuilder {
+func (hb *handlerBuilder) OnDelete(fn func(*extv1beta1.DaemonSet)) HandlerBuilder {
 	hb.onDelete = fn
 	return hb
 }
@@ -457,28 +450,28 @@ func (hb *handlerBuilder) Create() Handler {
 	return handler(*hb)
 }
 
-func (h handler) OnInitialize(objs []*v1beta1.DaemonSet) {
+func (h handler) OnInitialize(objs []*extv1beta1.DaemonSet) {
 	if h.onInitialize != nil {
 		h.onInitialize(objs)
 	}
 }
 
-func (hb *unitaryHandlerBuilder) OnInitialize(fn func(*v1beta1.DaemonSet)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnInitialize(fn func(*extv1beta1.DaemonSet)) UnitaryHandlerBuilder {
 	hb.onInitialize = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnCreate(fn func(*v1beta1.DaemonSet)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnCreate(fn func(*extv1beta1.DaemonSet)) UnitaryHandlerBuilder {
 	hb.onCreate = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnUpdate(fn func(*v1beta1.DaemonSet)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnUpdate(fn func(*extv1beta1.DaemonSet)) UnitaryHandlerBuilder {
 	hb.onUpdate = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnDelete(fn func(*v1beta1.DaemonSet)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnDelete(fn func(*extv1beta1.DaemonSet)) UnitaryHandlerBuilder {
 	hb.onDelete = fn
 	return hb
 }
@@ -487,25 +480,25 @@ func (hb *unitaryHandlerBuilder) Create() UnitaryHandler {
 	return unitaryHandler(*hb)
 }
 
-func (h unitaryHandler) OnInitialize(obj *v1beta1.DaemonSet) {
+func (h unitaryHandler) OnInitialize(obj *extv1beta1.DaemonSet) {
 	if h.onInitialize != nil {
 		h.onInitialize(obj)
 	}
 }
 
-func (h baseHandler) OnCreate(obj *v1beta1.DaemonSet) {
+func (h baseHandler) OnCreate(obj *extv1beta1.DaemonSet) {
 	if h.onCreate != nil {
 		h.onCreate(obj)
 	}
 }
 
-func (h baseHandler) OnUpdate(obj *v1beta1.DaemonSet) {
+func (h baseHandler) OnUpdate(obj *extv1beta1.DaemonSet) {
 	if h.onUpdate != nil {
 		h.onUpdate(obj)
 	}
 }
 
-func (h baseHandler) OnDelete(obj *v1beta1.DaemonSet) {
+func (h baseHandler) OnDelete(obj *extv1beta1.DaemonSet) {
 	if h.onDelete != nil {
 		h.onDelete(obj)
 	}

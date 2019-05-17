@@ -7,18 +7,17 @@ package join
 import (
 	"context"
 
-	"k8s.io/api/core/v1"
-
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/types/pod"
 	"github.com/boz/kcache/types/service"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func ServicePodsWith(ctx context.Context,
 	srcController service.Controller,
 	dstController pod.Publisher,
-	filterFn func(...*v1.Service) filter.ComparableFilter) (pod.Controller, error) {
+	filterFn func(...*corev1.Service) filter.ComparableFilter) (pod.Controller, error) {
 
 	log := logutil.FromContextOrDefault(ctx)
 
@@ -27,7 +26,7 @@ func ServicePodsWith(ctx context.Context,
 		return nil, err
 	}
 
-	update := func(_ *v1.Service) {
+	update := func(_ *corev1.Service) {
 		objs, err := srcController.Cache().List()
 		if err != nil {
 			log.Err(err, "join(service,pod: cache list")
@@ -37,7 +36,7 @@ func ServicePodsWith(ctx context.Context,
 	}
 
 	handler := service.BuildHandler().
-		OnInitialize(func(objs []*v1.Service) { dst.Refilter(filterFn(objs...)) }).
+		OnInitialize(func(objs []*corev1.Service) { dst.Refilter(filterFn(objs...)) }).
 		OnCreate(update).
 		OnUpdate(update).
 		OnDelete(update).

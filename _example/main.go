@@ -95,7 +95,7 @@ func main() {
 func getRESTClient(log logutil.Log) rest.Interface {
 	clientset := getClientset(log)
 
-	client := clientset.Core().RESTClient()
+	client := clientset.CoreV1().RESTClient()
 	return client
 }
 

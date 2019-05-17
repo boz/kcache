@@ -2,7 +2,7 @@ package event
 
 import (
 	"github.com/boz/kcache/filter"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -29,7 +29,7 @@ type involvedFilter struct {
 }
 
 func (f *involvedFilter) Accept(obj metav1.Object) bool {
-	event, ok := obj.(*v1.Event)
+	event, ok := obj.(*corev1.Event)
 	if !ok {
 		return false
 	}

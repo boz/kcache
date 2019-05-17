@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/boz/kcache/filter"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func NodeFilter(names ...string) filter.ComparableFilter {
@@ -20,7 +20,7 @@ func NodeFilter(names ...string) filter.ComparableFilter {
 type nodeFilter map[string]interface{}
 
 func (f nodeFilter) Accept(obj metav1.Object) bool {
-	pod, ok := obj.(*v1.Pod)
+	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return false
 	}

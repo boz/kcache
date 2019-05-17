@@ -5,7 +5,7 @@ import (
 
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/nsname"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -23,7 +23,7 @@ type serviceForFilter struct {
 // Accept() returns true if the object is a Service whose
 // selector matches the target fields of the filter.
 func (f *serviceForFilter) Accept(obj metav1.Object) bool {
-	svc, ok := obj.(*v1.Service)
+	svc, ok := obj.(*corev1.Service)
 
 	if !ok {
 		return false
@@ -49,10 +49,10 @@ func (f *serviceForFilter) Equals(other filter.Filter) bool {
 	return false
 }
 
-func PodsFilter(services ...*v1.Service) filter.ComparableFilter {
+func PodsFilter(services ...*corev1.Service) filter.ComparableFilter {
 
 	// make a copy and sort
-	svcs := make([]*v1.Service, len(services))
+	svcs := make([]*corev1.Service, len(services))
 	copy(svcs, services)
 
 	sort.Slice(svcs, func(i, j int) bool {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
 	logutil "github.com/boz/go-logutil"
@@ -44,7 +44,7 @@ func TestController(t *testing.T) {
 
 	fltr := filter.NSName(nsname.New(obj_a.GetNamespace(), obj_a.GetName()))
 
-	list := &v1.ServiceList{
+	list := &corev1.ServiceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceList",
 			APIVersion: "1",
@@ -52,7 +52,7 @@ func TestController(t *testing.T) {
 		ListMeta: metav1.ListMeta{
 			ResourceVersion: "1",
 		},
-		Items: []v1.Service{
+		Items: []corev1.Service{
 			*obj_a,
 			*obj_b,
 		},
@@ -310,7 +310,7 @@ func TestMonitor(t *testing.T) {
 	obj_c := testGenObject("ns", "a", "3")
 	obj_d := testGenObject("ns", "b", "4")
 
-	list := &v1.ServiceList{
+	list := &corev1.ServiceList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceList",
 			APIVersion: "1",
@@ -318,7 +318,7 @@ func TestMonitor(t *testing.T) {
 		ListMeta: metav1.ListMeta{
 			ResourceVersion: "1",
 		},
-		Items: []v1.Service{
+		Items: []corev1.Service{
 			*obj_a,
 		},
 	}
@@ -343,39 +343,39 @@ func TestMonitor(t *testing.T) {
 	u_ucalled := make(chan bool)
 	u_dcalled := make(chan bool)
 
-	h := BuildHandler().OnInitialize(func(objs []*v1.Service) {
+	h := BuildHandler().OnInitialize(func(objs []*corev1.Service) {
 		if assert.Len(t, objs, 1) {
 			assert.Equal(t, obj_a.GetNamespace(), objs[0].GetNamespace())
 			assert.Equal(t, obj_a.GetName(), objs[0].GetName())
 		}
 		close(icalled)
-	}).OnCreate(func(obj *v1.Service) {
+	}).OnCreate(func(obj *corev1.Service) {
 		assert.Equal(t, obj_b.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_b.GetName(), obj.GetName())
 		close(ccalled)
-	}).OnUpdate(func(obj *v1.Service) {
+	}).OnUpdate(func(obj *corev1.Service) {
 		assert.Equal(t, obj_c.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_c.GetName(), obj.GetName())
 		close(ucalled)
-	}).OnDelete(func(obj *v1.Service) {
+	}).OnDelete(func(obj *corev1.Service) {
 		assert.Equal(t, obj_d.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_d.GetName(), obj.GetName())
 		close(dcalled)
 	}).Create()
 
-	uh := BuildUnitaryHandler().OnInitialize(func(obj *v1.Service) {
+	uh := BuildUnitaryHandler().OnInitialize(func(obj *corev1.Service) {
 		assert.Equal(t, obj_a.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_a.GetName(), obj.GetName())
 		close(u_icalled)
-	}).OnCreate(func(obj *v1.Service) {
+	}).OnCreate(func(obj *corev1.Service) {
 		assert.Equal(t, obj_b.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_b.GetName(), obj.GetName())
 		close(u_ccalled)
-	}).OnUpdate(func(obj *v1.Service) {
+	}).OnUpdate(func(obj *corev1.Service) {
 		assert.Equal(t, obj_c.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_c.GetName(), obj.GetName())
 		close(u_ucalled)
-	}).OnDelete(func(obj *v1.Service) {
+	}).OnDelete(func(obj *corev1.Service) {
 		assert.Equal(t, obj_d.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_d.GetName(), obj.GetName())
 		close(u_dcalled)
@@ -461,8 +461,8 @@ func TestMonitor(t *testing.T) {
 
 }
 
-func testGenObject(ns, name, vsn string) *v1.Service {
-	return &v1.Service{
+func testGenObject(ns, name, vsn string) *corev1.Service {
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       ns,
 			Name:            name,

@@ -7,18 +7,17 @@ package join
 import (
 	"context"
 
-	"k8s.io/api/core/v1"
-
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/types/pod"
 	"github.com/boz/kcache/types/replicationcontroller"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func RCPodsWith(ctx context.Context,
 	srcController replicationcontroller.Controller,
 	dstController pod.Publisher,
-	filterFn func(...*v1.ReplicationController) filter.ComparableFilter) (pod.Controller, error) {
+	filterFn func(...*corev1.ReplicationController) filter.ComparableFilter) (pod.Controller, error) {
 
 	log := logutil.FromContextOrDefault(ctx)
 
@@ -27,7 +26,7 @@ func RCPodsWith(ctx context.Context,
 		return nil, err
 	}
 
-	update := func(_ *v1.ReplicationController) {
+	update := func(_ *corev1.ReplicationController) {
 		objs, err := srcController.Cache().List()
 		if err != nil {
 			log.Err(err, "join(replicationcontroller,pod: cache list")
@@ -37,7 +36,7 @@ func RCPodsWith(ctx context.Context,
 	}
 
 	handler := replicationcontroller.BuildHandler().
-		OnInitialize(func(objs []*v1.ReplicationController) { dst.Refilter(filterFn(objs...)) }).
+		OnInitialize(func(objs []*corev1.ReplicationController) { dst.Refilter(filterFn(objs...)) }).
 		OnCreate(update).
 		OnUpdate(update).
 		OnDelete(update).

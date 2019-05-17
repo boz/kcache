@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/extensions/v1beta1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/watch"
 
 	logutil "github.com/boz/go-logutil"
@@ -44,7 +44,7 @@ func TestController(t *testing.T) {
 
 	fltr := filter.NSName(nsname.New(obj_a.GetNamespace(), obj_a.GetName()))
 
-	list := &v1beta1.IngressList{
+	list := &extv1beta1.IngressList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "IngressList",
 			APIVersion: "1",
@@ -52,7 +52,7 @@ func TestController(t *testing.T) {
 		ListMeta: metav1.ListMeta{
 			ResourceVersion: "1",
 		},
-		Items: []v1beta1.Ingress{
+		Items: []extv1beta1.Ingress{
 			*obj_a,
 			*obj_b,
 		},
@@ -310,7 +310,7 @@ func TestMonitor(t *testing.T) {
 	obj_c := testGenObject("ns", "a", "3")
 	obj_d := testGenObject("ns", "b", "4")
 
-	list := &v1beta1.IngressList{
+	list := &extv1beta1.IngressList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "IngressList",
 			APIVersion: "1",
@@ -318,7 +318,7 @@ func TestMonitor(t *testing.T) {
 		ListMeta: metav1.ListMeta{
 			ResourceVersion: "1",
 		},
-		Items: []v1beta1.Ingress{
+		Items: []extv1beta1.Ingress{
 			*obj_a,
 		},
 	}
@@ -343,39 +343,39 @@ func TestMonitor(t *testing.T) {
 	u_ucalled := make(chan bool)
 	u_dcalled := make(chan bool)
 
-	h := BuildHandler().OnInitialize(func(objs []*v1beta1.Ingress) {
+	h := BuildHandler().OnInitialize(func(objs []*extv1beta1.Ingress) {
 		if assert.Len(t, objs, 1) {
 			assert.Equal(t, obj_a.GetNamespace(), objs[0].GetNamespace())
 			assert.Equal(t, obj_a.GetName(), objs[0].GetName())
 		}
 		close(icalled)
-	}).OnCreate(func(obj *v1beta1.Ingress) {
+	}).OnCreate(func(obj *extv1beta1.Ingress) {
 		assert.Equal(t, obj_b.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_b.GetName(), obj.GetName())
 		close(ccalled)
-	}).OnUpdate(func(obj *v1beta1.Ingress) {
+	}).OnUpdate(func(obj *extv1beta1.Ingress) {
 		assert.Equal(t, obj_c.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_c.GetName(), obj.GetName())
 		close(ucalled)
-	}).OnDelete(func(obj *v1beta1.Ingress) {
+	}).OnDelete(func(obj *extv1beta1.Ingress) {
 		assert.Equal(t, obj_d.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_d.GetName(), obj.GetName())
 		close(dcalled)
 	}).Create()
 
-	uh := BuildUnitaryHandler().OnInitialize(func(obj *v1beta1.Ingress) {
+	uh := BuildUnitaryHandler().OnInitialize(func(obj *extv1beta1.Ingress) {
 		assert.Equal(t, obj_a.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_a.GetName(), obj.GetName())
 		close(u_icalled)
-	}).OnCreate(func(obj *v1beta1.Ingress) {
+	}).OnCreate(func(obj *extv1beta1.Ingress) {
 		assert.Equal(t, obj_b.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_b.GetName(), obj.GetName())
 		close(u_ccalled)
-	}).OnUpdate(func(obj *v1beta1.Ingress) {
+	}).OnUpdate(func(obj *extv1beta1.Ingress) {
 		assert.Equal(t, obj_c.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_c.GetName(), obj.GetName())
 		close(u_ucalled)
-	}).OnDelete(func(obj *v1beta1.Ingress) {
+	}).OnDelete(func(obj *extv1beta1.Ingress) {
 		assert.Equal(t, obj_d.GetNamespace(), obj.GetNamespace())
 		assert.Equal(t, obj_d.GetName(), obj.GetName())
 		close(u_dcalled)
@@ -461,8 +461,8 @@ func TestMonitor(t *testing.T) {
 
 }
 
-func testGenObject(ns, name, vsn string) *v1beta1.Ingress {
-	return &v1beta1.Ingress{
+func testGenObject(ns, name, vsn string) *extv1beta1.Ingress {
+	return &extv1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       ns,
 			Name:            name,

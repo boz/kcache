@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"k8s.io/api/extensions/v1beta1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 	adapter        = _adapter{}
 )
 
-var _ = v1beta1.Deployment{}
+var _ = extv1beta1.Deployment{}
 
 type ObjectType generic.Type
 

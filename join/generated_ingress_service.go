@@ -7,18 +7,17 @@ package join
 import (
 	"context"
 
-	"k8s.io/api/extensions/v1beta1"
-
 	logutil "github.com/boz/go-logutil"
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/types/ingress"
 	"github.com/boz/kcache/types/service"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 )
 
 func IngressServicesWith(ctx context.Context,
 	srcController ingress.Controller,
 	dstController service.Publisher,
-	filterFn func(...*v1beta1.Ingress) filter.ComparableFilter) (service.Controller, error) {
+	filterFn func(...*extv1beta1.Ingress) filter.ComparableFilter) (service.Controller, error) {
 
 	log := logutil.FromContextOrDefault(ctx)
 
@@ -27,7 +26,7 @@ func IngressServicesWith(ctx context.Context,
 		return nil, err
 	}
 
-	update := func(_ *v1beta1.Ingress) {
+	update := func(_ *extv1beta1.Ingress) {
 		objs, err := srcController.Cache().List()
 		if err != nil {
 			log.Err(err, "join(ingress,service: cache list")
@@ -37,7 +36,7 @@ func IngressServicesWith(ctx context.Context,
 	}
 
 	handler := ingress.BuildHandler().
-		OnInitialize(func(objs []*v1beta1.Ingress) { dst.Refilter(filterFn(objs...)) }).
+		OnInitialize(func(objs []*extv1beta1.Ingress) { dst.Refilter(filterFn(objs...)) }).
 		OnCreate(update).
 		OnUpdate(update).
 		OnDelete(update).

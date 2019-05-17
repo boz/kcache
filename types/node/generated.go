@@ -6,23 +6,16 @@ package node
 
 import (
 	"context"
-
 	"fmt"
 
 	logutil "github.com/boz/go-logutil"
-
 	"github.com/boz/kcache"
-
 	"github.com/boz/kcache/client"
-
 	"github.com/boz/kcache/filter"
-
+	corev1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/kubernetes"
-
-	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 )
 
 var (
@@ -30,16 +23,16 @@ var (
 	adapter        = _adapter{}
 )
 
-var _ = v1beta1.Deployment{}
+var _ = extv1beta1.Deployment{}
 
 type Event interface {
 	Type() kcache.EventType
-	Resource() *v1.Node
+	Resource() *corev1.Node
 }
 
 type CacheReader interface {
-	Get(ns string, name string) (*v1.Node, error)
-	List() ([]*v1.Node, error)
+	Get(ns string, name string) (*corev1.Node, error)
+	List() ([]*corev1.Node, error)
 }
 
 type CacheController interface {
@@ -82,48 +75,48 @@ type FilterController interface {
 }
 
 type BaseHandler interface {
-	OnCreate(*v1.Node)
-	OnUpdate(*v1.Node)
-	OnDelete(*v1.Node)
+	OnCreate(*corev1.Node)
+	OnUpdate(*corev1.Node)
+	OnDelete(*corev1.Node)
 }
 
 type Handler interface {
 	BaseHandler
-	OnInitialize([]*v1.Node)
+	OnInitialize([]*corev1.Node)
 }
 
 type HandlerBuilder interface {
-	OnInitialize(func([]*v1.Node)) HandlerBuilder
-	OnCreate(func(*v1.Node)) HandlerBuilder
-	OnUpdate(func(*v1.Node)) HandlerBuilder
-	OnDelete(func(*v1.Node)) HandlerBuilder
+	OnInitialize(func([]*corev1.Node)) HandlerBuilder
+	OnCreate(func(*corev1.Node)) HandlerBuilder
+	OnUpdate(func(*corev1.Node)) HandlerBuilder
+	OnDelete(func(*corev1.Node)) HandlerBuilder
 	Create() Handler
 }
 
 type UnitaryHandler interface {
 	BaseHandler
-	OnInitialize(*v1.Node)
+	OnInitialize(*corev1.Node)
 }
 
 type UnitaryHandlerBuilder interface {
-	OnInitialize(func(*v1.Node)) UnitaryHandlerBuilder
-	OnCreate(func(*v1.Node)) UnitaryHandlerBuilder
-	OnUpdate(func(*v1.Node)) UnitaryHandlerBuilder
-	OnDelete(func(*v1.Node)) UnitaryHandlerBuilder
+	OnInitialize(func(*corev1.Node)) UnitaryHandlerBuilder
+	OnCreate(func(*corev1.Node)) UnitaryHandlerBuilder
+	OnUpdate(func(*corev1.Node)) UnitaryHandlerBuilder
+	OnDelete(func(*corev1.Node)) UnitaryHandlerBuilder
 	Create() UnitaryHandler
 }
 
 type _adapter struct{}
 
-func (_adapter) adaptObject(obj metav1.Object) (*v1.Node, error) {
-	if obj, ok := obj.(*v1.Node); ok {
+func (_adapter) adaptObject(obj metav1.Object) (*corev1.Node, error) {
+	if obj, ok := obj.(*corev1.Node); ok {
 		return obj, nil
 	}
 	return nil, ErrInvalidType
 }
 
-func (a _adapter) adaptList(objs []metav1.Object) ([]*v1.Node, error) {
-	var ret []*v1.Node
+func (a _adapter) adaptList(objs []metav1.Object) ([]*corev1.Node, error) {
+	var ret []*corev1.Node
 	for _, orig := range objs {
 		adapted, err := a.adaptObject(orig)
 		if err != nil {
@@ -142,7 +135,7 @@ type cache struct {
 	parent kcache.CacheReader
 }
 
-func (c *cache) Get(ns string, name string) (*v1.Node, error) {
+func (c *cache) Get(ns string, name string) (*corev1.Node, error) {
 	obj, err := c.parent.Get(ns, name)
 	switch {
 	case err != nil:
@@ -154,7 +147,7 @@ func (c *cache) Get(ns string, name string) (*v1.Node, error) {
 	}
 }
 
-func (c *cache) List() ([]*v1.Node, error) {
+func (c *cache) List() ([]*corev1.Node, error) {
 	objs, err := c.parent.List()
 	if err != nil {
 		return nil, err
@@ -164,7 +157,7 @@ func (c *cache) List() ([]*v1.Node, error) {
 
 type event struct {
 	etype    kcache.EventType
-	resource *v1.Node
+	resource *corev1.Node
 }
 
 func wrapEvent(evt kcache.Event) (Event, error) {
@@ -179,7 +172,7 @@ func (e event) Type() kcache.EventType {
 	return e.etype
 }
 
-func (e event) Resource() *v1.Node {
+func (e event) Resource() *corev1.Node {
 	return e.resource
 }
 
@@ -386,7 +379,7 @@ func NewMonitor(publisher Publisher, handler Handler) (kcache.Monitor, error) {
 
 func ToUnitary(log logutil.Log, delegate UnitaryHandler) Handler {
 	return BuildHandler().
-		OnInitialize(func(objs []*v1.Node) {
+		OnInitialize(func(objs []*corev1.Node) {
 			if count := len(objs); count > 1 {
 				log.Warnf("initialized with invalid count: %v", count)
 				return
@@ -397,13 +390,13 @@ func ToUnitary(log logutil.Log, delegate UnitaryHandler) Handler {
 			}
 			delegate.OnInitialize(objs[0])
 		}).
-		OnCreate(func(obj *v1.Node) {
+		OnCreate(func(obj *corev1.Node) {
 			delegate.OnCreate(obj)
 		}).
-		OnUpdate(func(obj *v1.Node) {
+		OnUpdate(func(obj *corev1.Node) {
 			delegate.OnUpdate(obj)
 		}).
-		OnDelete(func(obj *v1.Node) {
+		OnDelete(func(obj *corev1.Node) {
 			delegate.OnDelete(obj)
 		}).Create()
 }
@@ -417,39 +410,39 @@ func BuildUnitaryHandler() UnitaryHandlerBuilder {
 }
 
 type baseHandler struct {
-	onCreate func(*v1.Node)
-	onUpdate func(*v1.Node)
-	onDelete func(*v1.Node)
+	onCreate func(*corev1.Node)
+	onUpdate func(*corev1.Node)
+	onDelete func(*corev1.Node)
 }
 
 type handler struct {
 	baseHandler
-	onInitialize func([]*v1.Node)
+	onInitialize func([]*corev1.Node)
 }
 type handlerBuilder handler
 
 type unitaryHandler struct {
 	baseHandler
-	onInitialize func(*v1.Node)
+	onInitialize func(*corev1.Node)
 }
 type unitaryHandlerBuilder unitaryHandler
 
-func (hb *handlerBuilder) OnInitialize(fn func([]*v1.Node)) HandlerBuilder {
+func (hb *handlerBuilder) OnInitialize(fn func([]*corev1.Node)) HandlerBuilder {
 	hb.onInitialize = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnCreate(fn func(*v1.Node)) HandlerBuilder {
+func (hb *handlerBuilder) OnCreate(fn func(*corev1.Node)) HandlerBuilder {
 	hb.onCreate = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnUpdate(fn func(*v1.Node)) HandlerBuilder {
+func (hb *handlerBuilder) OnUpdate(fn func(*corev1.Node)) HandlerBuilder {
 	hb.onUpdate = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnDelete(fn func(*v1.Node)) HandlerBuilder {
+func (hb *handlerBuilder) OnDelete(fn func(*corev1.Node)) HandlerBuilder {
 	hb.onDelete = fn
 	return hb
 }
@@ -458,28 +451,28 @@ func (hb *handlerBuilder) Create() Handler {
 	return handler(*hb)
 }
 
-func (h handler) OnInitialize(objs []*v1.Node) {
+func (h handler) OnInitialize(objs []*corev1.Node) {
 	if h.onInitialize != nil {
 		h.onInitialize(objs)
 	}
 }
 
-func (hb *unitaryHandlerBuilder) OnInitialize(fn func(*v1.Node)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnInitialize(fn func(*corev1.Node)) UnitaryHandlerBuilder {
 	hb.onInitialize = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnCreate(fn func(*v1.Node)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnCreate(fn func(*corev1.Node)) UnitaryHandlerBuilder {
 	hb.onCreate = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnUpdate(fn func(*v1.Node)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnUpdate(fn func(*corev1.Node)) UnitaryHandlerBuilder {
 	hb.onUpdate = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnDelete(fn func(*v1.Node)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnDelete(fn func(*corev1.Node)) UnitaryHandlerBuilder {
 	hb.onDelete = fn
 	return hb
 }
@@ -488,25 +481,25 @@ func (hb *unitaryHandlerBuilder) Create() UnitaryHandler {
 	return unitaryHandler(*hb)
 }
 
-func (h unitaryHandler) OnInitialize(obj *v1.Node) {
+func (h unitaryHandler) OnInitialize(obj *corev1.Node) {
 	if h.onInitialize != nil {
 		h.onInitialize(obj)
 	}
 }
 
-func (h baseHandler) OnCreate(obj *v1.Node) {
+func (h baseHandler) OnCreate(obj *corev1.Node) {
 	if h.onCreate != nil {
 		h.onCreate(obj)
 	}
 }
 
-func (h baseHandler) OnUpdate(obj *v1.Node) {
+func (h baseHandler) OnUpdate(obj *corev1.Node) {
 	if h.onUpdate != nil {
 		h.onUpdate(obj)
 	}
 }
 
-func (h baseHandler) OnDelete(obj *v1.Node) {
+func (h baseHandler) OnDelete(obj *corev1.Node) {
 	if h.onDelete != nil {
 		h.onDelete(obj)
 	}
