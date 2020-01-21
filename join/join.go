@@ -2,10 +2,10 @@ package join
 
 import (
 	"context"
-
 	"github.com/boz/kcache/types/daemonset"
 	"github.com/boz/kcache/types/deployment"
 	"github.com/boz/kcache/types/ingress"
+	"github.com/boz/kcache/types/job"
 	"github.com/boz/kcache/types/pod"
 	"github.com/boz/kcache/types/replicaset"
 	"github.com/boz/kcache/types/replicationcontroller"
@@ -30,6 +30,11 @@ func RSPods(ctx context.Context,
 func DeploymentPods(ctx context.Context,
 	src deployment.Controller, dst pod.Publisher) (pod.Controller, error) {
 	return DeploymentPodsWith(ctx, src, dst, deployment.PodsFilter)
+}
+
+func JobPods(ctx context.Context,
+	src job.Controller, dst pod.Publisher) (pod.Controller, error) {
+	return JobPodsWith(ctx, src, dst, job.PodsFilter)
 }
 
 func DaemonSetPods(ctx context.Context,

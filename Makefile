@@ -29,6 +29,7 @@ generate-types:
 	genny -in=types/gen/template.go -out=types/replicationcontroller/generated.go -pkg=replicationcontroller gen 'ObjectType=*corev1.ReplicationController'
 	genny -in=types/gen/template.go -out=types/replicaset/generated.go -pkg=replicaset gen 'ObjectType=*extv1beta1.ReplicaSet'
 	genny -in=types/gen/template.go -out=types/deployment/generated.go -pkg=deployment gen 'ObjectType=*extv1beta1.Deployment'
+	genny -in=types/gen/template.go -out=types/job/generated.go -pkg=job gen 'ObjectType=*batchv1.Job'
 	genny -in=types/gen/template.go -out=types/daemonset/generated.go -pkg=daemonset gen 'ObjectType=*extv1beta1.DaemonSet'
 	goimports -w types/**/generated.go
 	$(GO) build ./types/...
@@ -44,6 +45,7 @@ generate-type-tests:
 	./types/gen/gen corev1.ReplicationController > types/replicationcontroller/generated_test.go
 	./types/gen/gen extv1beta1.ReplicaSet > types/replicaset/generated_test.go
 	./types/gen/gen extv1beta1.Deployment > types/deployment/generated_test.go
+	./types/gen/gen batchv1.Job > types/job/generated_test.go
 	./types/gen/gen extv1beta1.DaemonSet > types/daemonset/generated_test.go
 	$(GO) test ./types/...
 
@@ -53,6 +55,7 @@ generate-joins:
 	./join/gen/gen RC  replicationcontroller '*corev1.ReplicationController' Pod pod > ./join/generated_rc_pod.go
 	./join/gen/gen RS  replicaset '*extv1beta1.ReplicaSet' Pod pod > ./join/generated_rs_pod.go
 	./join/gen/gen Deployment deployment '*extv1beta1.Deployment' Pod pod > ./join/generated_deployment_pod.go
+	./join/gen/gen Job job '*batchv1.Job' Pod pod > ./join/generated_job_pod.go
 	./join/gen/gen DaemonSet daemonset '*extv1beta1.DaemonSet' Pod pod > ./join/generated_daemonset_pod.go
 	./join/gen/gen Ingress ingress '*extv1beta1.Ingress' Service service > ./join/generated_ingress_service.go
 	$(GO) build ./join
