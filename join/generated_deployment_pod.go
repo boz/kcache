@@ -11,13 +11,13 @@ import (
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/types/deployment"
 	"github.com/boz/kcache/types/pod"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 func DeploymentPodsWith(ctx context.Context,
 	srcController deployment.Controller,
 	dstController pod.Publisher,
-	filterFn func(...*extv1beta1.Deployment) filter.ComparableFilter) (pod.Controller, error) {
+	filterFn func(...*appsv1.Deployment) filter.ComparableFilter) (pod.Controller, error) {
 
 	log := logutil.FromContextOrDefault(ctx)
 
@@ -26,7 +26,7 @@ func DeploymentPodsWith(ctx context.Context,
 		return nil, err
 	}
 
-	update := func(_ *extv1beta1.Deployment) {
+	update := func(_ *appsv1.Deployment) {
 		objs, err := srcController.Cache().List()
 		if err != nil {
 			log.Err(err, "join(deployment,pod: cache list")
@@ -36,7 +36,7 @@ func DeploymentPodsWith(ctx context.Context,
 	}
 
 	handler := deployment.BuildHandler().
-		OnInitialize(func(objs []*extv1beta1.Deployment) { dst.Refilter(filterFn(objs...)) }).
+		OnInitialize(func(objs []*appsv1.Deployment) { dst.Refilter(filterFn(objs...)) }).
 		OnCreate(update).
 		OnUpdate(update).
 		OnDelete(update).

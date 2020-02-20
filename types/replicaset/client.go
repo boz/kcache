@@ -8,6 +8,6 @@ import (
 const resourceName = "replicasets"
 
 func NewClient(cs kubernetes.Interface, ns string) client.Client {
-	scope := cs.ExtensionsV1beta1()
+	scope := cs.AppsV1()
 	return client.ForResource(scope.RESTClient(), resourceName, ns)
 }

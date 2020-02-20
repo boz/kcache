@@ -11,13 +11,13 @@ import (
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/types/pod"
 	"github.com/boz/kcache/types/replicaset"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 func RSPodsWith(ctx context.Context,
 	srcController replicaset.Controller,
 	dstController pod.Publisher,
-	filterFn func(...*extv1beta1.ReplicaSet) filter.ComparableFilter) (pod.Controller, error) {
+	filterFn func(...*appsv1.ReplicaSet) filter.ComparableFilter) (pod.Controller, error) {
 
 	log := logutil.FromContextOrDefault(ctx)
 
@@ -26,7 +26,7 @@ func RSPodsWith(ctx context.Context,
 		return nil, err
 	}
 
-	update := func(_ *extv1beta1.ReplicaSet) {
+	update := func(_ *appsv1.ReplicaSet) {
 		objs, err := srcController.Cache().List()
 		if err != nil {
 			log.Err(err, "join(replicaset,pod: cache list")
@@ -36,7 +36,7 @@ func RSPodsWith(ctx context.Context,
 	}
 
 	handler := replicaset.BuildHandler().
-		OnInitialize(func(objs []*extv1beta1.ReplicaSet) { dst.Refilter(filterFn(objs...)) }).
+		OnInitialize(func(objs []*appsv1.ReplicaSet) { dst.Refilter(filterFn(objs...)) }).
 		OnCreate(update).
 		OnUpdate(update).
 		OnDelete(update).

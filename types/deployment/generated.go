@@ -12,7 +12,7 @@ import (
 	"github.com/boz/kcache"
 	"github.com/boz/kcache/client"
 	"github.com/boz/kcache/filter"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -22,16 +22,16 @@ var (
 	adapter        = _adapter{}
 )
 
-var _ = extv1beta1.Deployment{}
+var _ = appsv1.Deployment{}
 
 type Event interface {
 	Type() kcache.EventType
-	Resource() *extv1beta1.Deployment
+	Resource() *appsv1.Deployment
 }
 
 type CacheReader interface {
-	Get(ns string, name string) (*extv1beta1.Deployment, error)
-	List() ([]*extv1beta1.Deployment, error)
+	Get(ns string, name string) (*appsv1.Deployment, error)
+	List() ([]*appsv1.Deployment, error)
 }
 
 type CacheController interface {
@@ -74,48 +74,48 @@ type FilterController interface {
 }
 
 type BaseHandler interface {
-	OnCreate(*extv1beta1.Deployment)
-	OnUpdate(*extv1beta1.Deployment)
-	OnDelete(*extv1beta1.Deployment)
+	OnCreate(*appsv1.Deployment)
+	OnUpdate(*appsv1.Deployment)
+	OnDelete(*appsv1.Deployment)
 }
 
 type Handler interface {
 	BaseHandler
-	OnInitialize([]*extv1beta1.Deployment)
+	OnInitialize([]*appsv1.Deployment)
 }
 
 type HandlerBuilder interface {
-	OnInitialize(func([]*extv1beta1.Deployment)) HandlerBuilder
-	OnCreate(func(*extv1beta1.Deployment)) HandlerBuilder
-	OnUpdate(func(*extv1beta1.Deployment)) HandlerBuilder
-	OnDelete(func(*extv1beta1.Deployment)) HandlerBuilder
+	OnInitialize(func([]*appsv1.Deployment)) HandlerBuilder
+	OnCreate(func(*appsv1.Deployment)) HandlerBuilder
+	OnUpdate(func(*appsv1.Deployment)) HandlerBuilder
+	OnDelete(func(*appsv1.Deployment)) HandlerBuilder
 	Create() Handler
 }
 
 type UnitaryHandler interface {
 	BaseHandler
-	OnInitialize(*extv1beta1.Deployment)
+	OnInitialize(*appsv1.Deployment)
 }
 
 type UnitaryHandlerBuilder interface {
-	OnInitialize(func(*extv1beta1.Deployment)) UnitaryHandlerBuilder
-	OnCreate(func(*extv1beta1.Deployment)) UnitaryHandlerBuilder
-	OnUpdate(func(*extv1beta1.Deployment)) UnitaryHandlerBuilder
-	OnDelete(func(*extv1beta1.Deployment)) UnitaryHandlerBuilder
+	OnInitialize(func(*appsv1.Deployment)) UnitaryHandlerBuilder
+	OnCreate(func(*appsv1.Deployment)) UnitaryHandlerBuilder
+	OnUpdate(func(*appsv1.Deployment)) UnitaryHandlerBuilder
+	OnDelete(func(*appsv1.Deployment)) UnitaryHandlerBuilder
 	Create() UnitaryHandler
 }
 
 type _adapter struct{}
 
-func (_adapter) adaptObject(obj metav1.Object) (*extv1beta1.Deployment, error) {
-	if obj, ok := obj.(*extv1beta1.Deployment); ok {
+func (_adapter) adaptObject(obj metav1.Object) (*appsv1.Deployment, error) {
+	if obj, ok := obj.(*appsv1.Deployment); ok {
 		return obj, nil
 	}
 	return nil, ErrInvalidType
 }
 
-func (a _adapter) adaptList(objs []metav1.Object) ([]*extv1beta1.Deployment, error) {
-	var ret []*extv1beta1.Deployment
+func (a _adapter) adaptList(objs []metav1.Object) ([]*appsv1.Deployment, error) {
+	var ret []*appsv1.Deployment
 	for _, orig := range objs {
 		adapted, err := a.adaptObject(orig)
 		if err != nil {
@@ -134,7 +134,7 @@ type cache struct {
 	parent kcache.CacheReader
 }
 
-func (c *cache) Get(ns string, name string) (*extv1beta1.Deployment, error) {
+func (c *cache) Get(ns string, name string) (*appsv1.Deployment, error) {
 	obj, err := c.parent.Get(ns, name)
 	switch {
 	case err != nil:
@@ -146,7 +146,7 @@ func (c *cache) Get(ns string, name string) (*extv1beta1.Deployment, error) {
 	}
 }
 
-func (c *cache) List() ([]*extv1beta1.Deployment, error) {
+func (c *cache) List() ([]*appsv1.Deployment, error) {
 	objs, err := c.parent.List()
 	if err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func (c *cache) List() ([]*extv1beta1.Deployment, error) {
 
 type event struct {
 	etype    kcache.EventType
-	resource *extv1beta1.Deployment
+	resource *appsv1.Deployment
 }
 
 func wrapEvent(evt kcache.Event) (Event, error) {
@@ -171,7 +171,7 @@ func (e event) Type() kcache.EventType {
 	return e.etype
 }
 
-func (e event) Resource() *extv1beta1.Deployment {
+func (e event) Resource() *appsv1.Deployment {
 	return e.resource
 }
 
@@ -378,7 +378,7 @@ func NewMonitor(publisher Publisher, handler Handler) (kcache.Monitor, error) {
 
 func ToUnitary(log logutil.Log, delegate UnitaryHandler) Handler {
 	return BuildHandler().
-		OnInitialize(func(objs []*extv1beta1.Deployment) {
+		OnInitialize(func(objs []*appsv1.Deployment) {
 			if count := len(objs); count > 1 {
 				log.Warnf("initialized with invalid count: %v", count)
 				return
@@ -389,13 +389,13 @@ func ToUnitary(log logutil.Log, delegate UnitaryHandler) Handler {
 			}
 			delegate.OnInitialize(objs[0])
 		}).
-		OnCreate(func(obj *extv1beta1.Deployment) {
+		OnCreate(func(obj *appsv1.Deployment) {
 			delegate.OnCreate(obj)
 		}).
-		OnUpdate(func(obj *extv1beta1.Deployment) {
+		OnUpdate(func(obj *appsv1.Deployment) {
 			delegate.OnUpdate(obj)
 		}).
-		OnDelete(func(obj *extv1beta1.Deployment) {
+		OnDelete(func(obj *appsv1.Deployment) {
 			delegate.OnDelete(obj)
 		}).Create()
 }
@@ -409,39 +409,39 @@ func BuildUnitaryHandler() UnitaryHandlerBuilder {
 }
 
 type baseHandler struct {
-	onCreate func(*extv1beta1.Deployment)
-	onUpdate func(*extv1beta1.Deployment)
-	onDelete func(*extv1beta1.Deployment)
+	onCreate func(*appsv1.Deployment)
+	onUpdate func(*appsv1.Deployment)
+	onDelete func(*appsv1.Deployment)
 }
 
 type handler struct {
 	baseHandler
-	onInitialize func([]*extv1beta1.Deployment)
+	onInitialize func([]*appsv1.Deployment)
 }
 type handlerBuilder handler
 
 type unitaryHandler struct {
 	baseHandler
-	onInitialize func(*extv1beta1.Deployment)
+	onInitialize func(*appsv1.Deployment)
 }
 type unitaryHandlerBuilder unitaryHandler
 
-func (hb *handlerBuilder) OnInitialize(fn func([]*extv1beta1.Deployment)) HandlerBuilder {
+func (hb *handlerBuilder) OnInitialize(fn func([]*appsv1.Deployment)) HandlerBuilder {
 	hb.onInitialize = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnCreate(fn func(*extv1beta1.Deployment)) HandlerBuilder {
+func (hb *handlerBuilder) OnCreate(fn func(*appsv1.Deployment)) HandlerBuilder {
 	hb.onCreate = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnUpdate(fn func(*extv1beta1.Deployment)) HandlerBuilder {
+func (hb *handlerBuilder) OnUpdate(fn func(*appsv1.Deployment)) HandlerBuilder {
 	hb.onUpdate = fn
 	return hb
 }
 
-func (hb *handlerBuilder) OnDelete(fn func(*extv1beta1.Deployment)) HandlerBuilder {
+func (hb *handlerBuilder) OnDelete(fn func(*appsv1.Deployment)) HandlerBuilder {
 	hb.onDelete = fn
 	return hb
 }
@@ -450,28 +450,28 @@ func (hb *handlerBuilder) Create() Handler {
 	return handler(*hb)
 }
 
-func (h handler) OnInitialize(objs []*extv1beta1.Deployment) {
+func (h handler) OnInitialize(objs []*appsv1.Deployment) {
 	if h.onInitialize != nil {
 		h.onInitialize(objs)
 	}
 }
 
-func (hb *unitaryHandlerBuilder) OnInitialize(fn func(*extv1beta1.Deployment)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnInitialize(fn func(*appsv1.Deployment)) UnitaryHandlerBuilder {
 	hb.onInitialize = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnCreate(fn func(*extv1beta1.Deployment)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnCreate(fn func(*appsv1.Deployment)) UnitaryHandlerBuilder {
 	hb.onCreate = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnUpdate(fn func(*extv1beta1.Deployment)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnUpdate(fn func(*appsv1.Deployment)) UnitaryHandlerBuilder {
 	hb.onUpdate = fn
 	return hb
 }
 
-func (hb *unitaryHandlerBuilder) OnDelete(fn func(*extv1beta1.Deployment)) UnitaryHandlerBuilder {
+func (hb *unitaryHandlerBuilder) OnDelete(fn func(*appsv1.Deployment)) UnitaryHandlerBuilder {
 	hb.onDelete = fn
 	return hb
 }
@@ -480,25 +480,25 @@ func (hb *unitaryHandlerBuilder) Create() UnitaryHandler {
 	return unitaryHandler(*hb)
 }
 
-func (h unitaryHandler) OnInitialize(obj *extv1beta1.Deployment) {
+func (h unitaryHandler) OnInitialize(obj *appsv1.Deployment) {
 	if h.onInitialize != nil {
 		h.onInitialize(obj)
 	}
 }
 
-func (h baseHandler) OnCreate(obj *extv1beta1.Deployment) {
+func (h baseHandler) OnCreate(obj *appsv1.Deployment) {
 	if h.onCreate != nil {
 		h.onCreate(obj)
 	}
 }
 
-func (h baseHandler) OnUpdate(obj *extv1beta1.Deployment) {
+func (h baseHandler) OnUpdate(obj *appsv1.Deployment) {
 	if h.onUpdate != nil {
 		h.onUpdate(obj)
 	}
 }
 
-func (h baseHandler) OnDelete(obj *extv1beta1.Deployment) {
+func (h baseHandler) OnDelete(obj *appsv1.Deployment) {
 	if h.onDelete != nil {
 		h.onDelete(obj)
 	}
