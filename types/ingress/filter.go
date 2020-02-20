@@ -3,10 +3,10 @@ package ingress
 import (
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/nsname"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/networking/v1beta1"
 )
 
-func ServicesFilter(ingresses ...*extv1beta1.Ingress) filter.ComparableFilter {
+func ServicesFilter(ingresses ...*appsv1.Ingress) filter.ComparableFilter {
 	var ids []nsname.NSName
 
 	for _, ing := range ingresses {
@@ -16,7 +16,7 @@ func ServicesFilter(ingresses ...*extv1beta1.Ingress) filter.ComparableFilter {
 	return filter.NSName(ids...)
 }
 
-func buildServicesFilter(ing *extv1beta1.Ingress) []nsname.NSName {
+func buildServicesFilter(ing *appsv1.Ingress) []nsname.NSName {
 	var ids []nsname.NSName
 
 	if be := ing.Spec.Backend; be != nil && be.ServiceName != "" {

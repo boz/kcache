@@ -3,16 +3,16 @@ package daemonset
 import (
 	"sort"
 
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/boz/kcache/filter"
 	"github.com/boz/kcache/nsname"
 )
 
-func PodsFilter(sources ...*extv1beta1.DaemonSet) filter.ComparableFilter {
+func PodsFilter(sources ...*appsv1.DaemonSet) filter.ComparableFilter {
 
 	// make a copy and sort
-	srcs := make([]*extv1beta1.DaemonSet, len(sources))
+	srcs := make([]*appsv1.DaemonSet, len(sources))
 	copy(srcs, sources)
 
 	sort.Slice(srcs, func(i, j int) bool {

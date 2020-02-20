@@ -5,17 +5,17 @@ import (
 
 	"github.com/boz/kcache/types/deployment"
 	"github.com/stretchr/testify/assert"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPodsFilter_selector(t *testing.T) {
 
-	genselector := func(ns, name string, labels map[string]string) *v1beta1.Deployment {
-		return &v1beta1.Deployment{
+	genselector := func(ns, name string, labels map[string]string) *appsv1.Deployment {
+		return &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
-			Spec: v1beta1.DeploymentSpec{
+			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: labels,
 				},
@@ -23,10 +23,10 @@ func TestPodsFilter_selector(t *testing.T) {
 		}
 	}
 
-	gentemplate := func(ns, name string, labels map[string]string) *v1beta1.Deployment {
-		return &v1beta1.Deployment{
+	gentemplate := func(ns, name string, labels map[string]string) *appsv1.Deployment {
+		return &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
-			Spec: v1beta1.DeploymentSpec{
+			Spec: appsv1.DeploymentSpec{
 				Template: v1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				},
@@ -38,7 +38,7 @@ func TestPodsFilter_selector(t *testing.T) {
 	testPodsFilter(t, gentemplate, "template")
 }
 
-func testPodsFilter(t *testing.T, gen func(string, string, map[string]string) *v1beta1.Deployment, ctx string) {
+func testPodsFilter(t *testing.T, gen func(string, string, map[string]string) *appsv1.Deployment, ctx string) {
 
 	genpod := func(ns string, labels map[string]string) *v1.Pod {
 		return &v1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: labels, Namespace: ns}}
