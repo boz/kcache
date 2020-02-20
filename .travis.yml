@@ -3,7 +3,7 @@ language: go
 sudo: false
 
 go:
-  - "1.12"
+  - "1.13"
   - tip
 
 install:
@@ -14,6 +14,6 @@ env:
 
 script: |
   make test-full && \
-  if [ "$TRAVIS_GO_VERSION" == "1.12" ]; then
+  if [ "$TRAVIS_GO_VERSION" == "1.13" ]; then
     travis_wait 30 make test-cover
   fi
